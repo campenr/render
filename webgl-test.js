@@ -83,10 +83,14 @@ function main() {
   // Bind it to ARRAY_BUFFER (think of it as ARRAY_BUFFER = positionBuffer)
   gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
 
+  // array of start/end points in clip-space
   var positions = [
     0, 0,
     0, 0.5,
     0.7, 0,
+    0, 0,
+    0, -0.5,
+    -0.7, 0,
   ];
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
 
@@ -108,24 +112,30 @@ function main() {
   gl.vertexAttribPointer(
       positionAttributeLocation, size, type, normalize, stride, offset);
 
-  // Tell WebGL how to convert from clip space to pixels
-  gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+  function drawScene() {
 
-  // Clear the canvas
-  gl.clearColor(0, 0, 0, 0);
-  gl.clear(gl.COLOR_BUFFER_BIT);
+    // Tell WebGL how to convert from clip space to pixels
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
-  // Tell it to use our program (pair of shaders)
-  gl.useProgram(program);
+    // Clear the canvas
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
 
-  // Bind the attribute/buffer set we want.
-  gl.bindVertexArray(vao);
+    // Tell it to use our program (pair of shaders)
+    gl.useProgram(program);
 
-  // draw
-  var primitiveType = gl.TRIANGLES;
-  var offset = 0;
-  var count = 3;
-  gl.drawArrays(primitiveType, offset, count);
+    // Bind the attribute/buffer set we want.
+    gl.bindVertexArray(vao);
+
+    // draw
+    var primitiveType = gl.TRIANGLES;
+    var offset = 0;
+    var count = positions.length / size;  // positions / values per position
+    gl.drawArrays(primitiveType, offset, count);
+  }
+
+  drawScene();
+
 }
 
 main();
