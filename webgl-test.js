@@ -6,18 +6,24 @@ var vertexShaderSource = `#version 300 es
 // It will receive data from a buffer
 in vec2 a_position;
 
+// Used to pass in the resolution of the canvas
 uniform vec2 u_resolution;
+
+// A matrix to transform the positions by
+uniform mat3 u_matrix;
 
 // all shaders have a main function
 void main() {
+  // Multiply the position by the matrix.
+  vec2 position = (u_matrix * vec3(a_position, 1)).xy;
 
   // convert the position from pixels to 0.0 to 1.0
-  vec2 zeroToOne = a_position / u_resolution;
+  vec2 zeroToOne = position / u_resolution;
 
   // convert from 0->1 to 0->2
   vec2 zeroToTwo = zeroToOne * 2.0;
 
-  // convert from 0->2 to -1->+1 (clip space)
+  // convert from 0->2 to -1->+1 (clipspace)
   vec2 clipSpace = zeroToTwo - 1.0;
 
   gl_Position = vec4(clipSpace * vec2(1, -1), 0, 1);
@@ -38,6 +44,34 @@ void main() {
   outColor = vec4(1, 0, 0.5, 1);
 }
 `;
+
+var m3 = {
+  translation: function translation(tx, ty) {
+    return [
+      1, 0, 0,
+      0, 1, 0,
+      tx, ty, 1
+    ];
+  },
+
+  rotation: function rotation(angleInRadians) {
+    var c = Math.cos(angleInRadians);
+    var s = Math.sin(angleInRadians);
+    return [
+      c,-s, 0,
+      s, c, 0,
+      0, 0, 1
+    ];
+  },
+
+  scaling: function scaling(sx, sy) {
+    return [
+      sx, 0, 0,
+      0, sy, 0,
+      0, 0, 1
+    ];
+  },
+};
 
 function createShader(gl, type, source) {
   var shader = gl.createShader(type);
@@ -88,6 +122,7 @@ function main() {
 
   // look up uniform locations
   var resolutionUniformLocation = gl.getUniformLocation(program, "u_resolution");
+  var matrixLocation = gl.getUniformLocation(program, "u_matrix");
 
   // Create a buffer and put three 2d clip space points in it
   var positionBuffer = gl.createBuffer();
@@ -123,7 +158,13 @@ function main() {
   var offset = 0;        // start at the beginning of the buffer
   gl.vertexAttribPointer(positionAttributeLocation, size, type, normalize, stride, offset);
 
+  // First let's make some variables
+  // to hold the translation,
+  var translation = [10, 10];
+
   function drawScene() {
+
+    console.log('drawing')
 
     // Tell WebGL how to convert from clip space to pixels
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
@@ -142,14 +183,32 @@ function main() {
     // pixels to clipspace in the shader
     gl.uniform2f(resolutionUniformLocation, gl.canvas.width, gl.canvas.height);
 
+    // Compute the matrices
+    var translationMatrix = m3.translation(translation[0], translation[1]);
+
+    // Set the matrix.
+    gl.uniformMatrix3fv(matrixLocation, false, translationMatrix);
+
     // draw
     var primitiveType = gl.TRIANGLES;
     var offset = 0;
     var count = positions.length / size;  // positions / values per position
     gl.drawArrays(primitiveType, offset, count);
   }
+  requestAnimationFrame(drawScene);
 
-  drawScene();
+  const testRender = () => {
+    translation = [translation[0] + 1, translation[1] + 1];
+    console.log('test render: ', {translation})
+    requestAnimationFrame(drawScene);
+  }
+
+  (async () => {
+    var i = 0;
+    while (await new Promise(resolve => setTimeout(() => resolve(i++), 100)) < 1000) {
+      testRender();
+    }
+  })();
 
 }
 
