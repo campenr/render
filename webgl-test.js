@@ -4,14 +4,23 @@ var vertexShaderSource = `#version 300 es
 
 // an attribute is an input (in) to a vertex shader.
 // It will receive data from a buffer
-in vec4 a_position;
+in vec2 a_position;
+
+uniform vec2 u_resolution;
 
 // all shaders have a main function
 void main() {
 
-  // gl_Position is a special variable a vertex shader
-  // is responsible for setting
-  gl_Position = a_position;
+  // convert the position from pixels to 0.0 to 1.0
+  vec2 zeroToOne = a_position / u_resolution;
+
+  // convert from 0->1 to 0->2
+  vec2 zeroToTwo = zeroToOne * 2.0;
+
+  // convert from 0->2 to -1->+1 (clip space)
+  vec2 clipSpace = zeroToTwo - 1.0;
+
+  gl_Position = vec4(clipSpace, 0, 1);
 }
 `;
 
@@ -77,6 +86,9 @@ function main() {
   // look up where the vertex data needs to go.
   var positionAttributeLocation = gl.getAttribLocation(program, "a_position");
 
+  // look up uniform locations
+  var resolutionUniformLocation = gl.getUniformLocation(program, "u_resolution");
+
   // Create a buffer and put three 2d clip space points in it
   var positionBuffer = gl.createBuffer();
 
@@ -85,12 +97,12 @@ function main() {
 
   // array of start/end points in clip-space
   var positions = [
-    0, 0,
-    0, 0.5,
-    0.7, 0,
-    0, 0,
-    0, -0.5,
-    -0.7, 0,
+    10, 20,
+    80, 20,
+    10, 30,
+    10, 30,
+    80, 20,
+    80, 30,
   ];
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
 
@@ -109,8 +121,7 @@ function main() {
   var normalize = false; // don't normalize the data
   var stride = 0;        // 0 = move forward size * sizeof(type) each iteration to get the next position
   var offset = 0;        // start at the beginning of the buffer
-  gl.vertexAttribPointer(
-      positionAttributeLocation, size, type, normalize, stride, offset);
+  gl.vertexAttribPointer(positionAttributeLocation, size, type, normalize, stride, offset);
 
   function drawScene() {
 
@@ -126,6 +137,10 @@ function main() {
 
     // Bind the attribute/buffer set we want.
     gl.bindVertexArray(vao);
+
+    // Pass in the canvas resolution so we can convert from
+    // pixels to clipspace in the shader
+    gl.uniform2f(resolutionUniformLocation, gl.canvas.width, gl.canvas.height);
 
     // draw
     var primitiveType = gl.TRIANGLES;
