@@ -160,7 +160,7 @@ function main() {
 
   // First let's make some variables
   // to hold the translation,
-  var translation = [10, 10];
+  var translation = [0, 0];
 
   function drawScene() {
 
@@ -197,18 +197,21 @@ function main() {
   }
   requestAnimationFrame(drawScene);
 
-  const testRender = () => {
-    translation = [translation[0] + 1, translation[1] + 1];
-    console.log('test render: ', {translation})
-    requestAnimationFrame(drawScene);
+  var time = 0;
+  var moveSpeed = 100;
+
+  const testRender = (time_) => {
+    var deltaTime = time_ / 1000 - time;
+    console.log('test render: ', {translation, deltaTime})
+    time = time_ / 1000;
+    translation = [translation[0] + deltaTime * moveSpeed, translation[1] + deltaTime * moveSpeed];
+    if (translation[0] < gl.canvas.clientHeight * 0.90) {
+      drawScene();
+      requestAnimationFrame(testRender);
+    }
   }
 
-  (async () => {
-    var i = 0;
-    while (await new Promise(resolve => setTimeout(() => resolve(i++), 100)) < 1000) {
-      testRender();
-    }
-  })();
+  testRender(time)
 
 }
 
