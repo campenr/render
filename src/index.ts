@@ -1,5 +1,7 @@
 "use strict";
 
+import { multiply } from '../build/release.wasm';
+
 var vertexShaderSource = `#version 300 es
 
 // an attribute is an input (in) to a vertex shader.
@@ -45,8 +47,14 @@ void main() {
 }
 `;
 
+type Matrix3 = [
+    number, number, number,
+    number, number, number,
+    number, number, number,
+]
+
 var m3 = {
-  translation: function translation(tx, ty) {
+  translation: function translation(tx: number, ty: number) : Matrix3 {
     return [
       1, 0, 0,
       0, 1, 0,
@@ -54,7 +62,7 @@ var m3 = {
     ];
   },
 
-  rotation: function rotation(angleInRadians) {
+  rotation: function rotation(angleInRadians: number) : Matrix3 {
     var c = Math.cos(angleInRadians);
     var s = Math.sin(angleInRadians);
     return [
@@ -64,7 +72,7 @@ var m3 = {
     ];
   },
 
-  scaling: function scaling(sx, sy) {
+  scaling: function scaling(sx: number, sy: number) : Matrix3 {
     return [
       sx, 0, 0,
       0, sy, 0,
@@ -104,7 +112,7 @@ function createProgram(gl, vertexShader, fragmentShader) {
 
 function main() {
   // Get A WebGL context
-  var canvas = document.querySelector("#glcanvas");
+  var canvas = document.querySelector("#glcanvas") as HTMLCanvasElement;
   var gl = canvas.getContext("webgl2");
   if (!gl) {
     return;
@@ -205,7 +213,7 @@ function main() {
     console.log('test render: ', {translation, deltaTime})
     time = time_ / 1000;
     translation = [translation[0] + deltaTime * moveSpeed, translation[1] + deltaTime * moveSpeed];
-    if (translation[0] < gl.canvas.clientHeight * 0.90) {
+    if (translation[0] < multiply(gl.canvas.height * 1.0, 0.90)) {
       drawScene();
       requestAnimationFrame(testRender);
     }

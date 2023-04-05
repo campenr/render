@@ -5,21 +5,31 @@
   "main": "index.js",
   "scripts": {
     "test": "node tests",
+    "type": "tsc src/index.ts",
+    "build": "npm run asbuild:release && webpack",
+    "esbuild": "esbuild src/index.ts --bundle --outfile=index.js",
+    "eswatch": "esbuild src/index.ts --bundle --outfile=index.js --watch",
     "asbuild:debug": "asc assembly/index.ts --target debug",
     "asbuild:release": "asc assembly/index.ts --target release",
     "asbuild": "npm run asbuild:debug && npm run asbuild:release",
-    "start": "npx serve ."
+    "start": "webpack serve"
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "assemblyscript": "^0.27.1"
+    "assemblyscript": "^0.27.1",
+    "esbuild-loader": "^3.0.1",
+    "webpack": "^5.77.0",
+    "webpack-cli": "^5.0.1",
+    "webpack-dev-server": "^4.13.2"
   },
-  "type": "module",
   "exports": {
     ".": {
       "import": "./build/release.js",
       "types": "./build/release.d.ts"
     }
+  },
+  "dependencies": {
+    "esbuild": "0.17.15"
   }
 }
