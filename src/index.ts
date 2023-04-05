@@ -1,6 +1,6 @@
 "use strict";
 
-import { multiply } from '../build/release.wasm';
+import { multiply } from '../wasm/index.wasm';
 
 var vertexShaderSource = `#version 300 es
 
