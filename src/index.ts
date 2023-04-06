@@ -1,7 +1,8 @@
 "use strict";
 
 import Engine2D from './engine.ts';
-import Scene from './scene.ts';
+import Scene2D, { createEntityForScene } from './scene.ts';
+import Entity from './entity.ts';
 
 import { multiply } from '../wasm/index.wasm';
 
@@ -15,7 +16,9 @@ function main() {
   }
 
   const engine = new Engine2D(canvas, gl);
-  const scene = new Scene(engine);
+  const scene = new Scene2D(engine);
+
+  const basicEntity = createEntityForScene(Entity, scene);
 
   requestAnimationFrame(() => scene.draw());
 
@@ -25,8 +28,8 @@ function main() {
   const testRender = (time_) => {
     var deltaTime = time_ / 1000 - time;
     time = time_ / 1000;
-    scene.translation = [scene.translation[0] + deltaTime * moveSpeed, scene.translation[1] + deltaTime * moveSpeed];
-    if (scene.translation[0] < multiply(gl.canvas.height * 1.0, 0.90)) {
+    basicEntity.translation = [basicEntity.translation[0] + deltaTime * moveSpeed, basicEntity.translation[1] + deltaTime * moveSpeed];
+    if (basicEntity.translation[0] < multiply(gl.canvas.height * 1.0, 0.90)) {
       scene.draw();
       requestAnimationFrame(testRender);
     }
