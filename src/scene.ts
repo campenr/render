@@ -136,12 +136,12 @@ export default class Scene {
 
         // array of start/end points in clip-space
         var positions = [
-            10, 20,
-            80, 20,
-            10, 30,
-            10, 30,
-            80, 20,
-            80, 30,
+            0, 0,
+            50, 0,
+            0, 50,
+            50, 0,
+            50, 50,
+            0, 50,
         ];
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
         this.positions = positions;

@@ -7,7 +7,8 @@ module.exports = {
     ],
     output: {
         filename: 'index.js',
-        path: path.resolve(__dirname, 'build')
+        path: path.resolve(__dirname, 'public', 'static', 'build'),
+        publicPath: '/static/'
     },
     module: {
         rules: [
@@ -25,9 +26,15 @@ module.exports = {
         syncWebAssembly: true
     },
     devServer: {
-        static: {
-            directory: path.join(__dirname),
-        },
+        static: [
+            {
+                directory: path.join(__dirname, 'public'),
+            },
+            {
+                directory: path.resolve(__dirname, 'public', 'static', 'build'),
+                publicPath: '/static/',
+            },
+        ],
         compress: true,
         port: 9000
     }

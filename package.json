@@ -6,12 +6,10 @@
   "scripts": {
     "test": "node tests",
     "type": "tsc src/index.ts",
-    "build": "npm run asbuild:release && webpack",
+    "build": "npm run asbuild && webpack",
     "esbuild": "esbuild src/index.ts --bundle --source --outfile=index.js",
     "eswatch": "esbuild src/index.ts --bundle --outfile=index.js --watch",
-    "asbuild:debug": "asc assembly/index.ts --target debug",
-    "asbuild:release": "asc assembly/index.ts --target release",
-    "asbuild": "npm run asbuild:debug && npm run asbuild:release",
+    "asbuild": "asc assembly_src/index.ts --target release",
     "start": "webpack serve"
   },
   "author": "",
