@@ -7,7 +7,7 @@
     "test": "node tests",
     "type": "tsc src/index.ts",
     "build": "npm run asbuild:release && webpack",
-    "esbuild": "esbuild src/index.ts --bundle --outfile=index.js",
+    "esbuild": "esbuild src/index.ts --bundle --source --outfile=index.js",
     "eswatch": "esbuild src/index.ts --bundle --outfile=index.js --watch",
     "asbuild:debug": "asc assembly/index.ts --target debug",
     "asbuild:release": "asc assembly/index.ts --target release",
