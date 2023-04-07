@@ -5,8 +5,6 @@ import Scene2D, { createEntityForScene } from './scene.ts';
 import Entity from './entity.ts';
 import Mesh, { createMeshForEntity } from "./mesh.ts";
 
-import { multiply } from '../wasm/index.wasm';
-
 
 function main() {
 
@@ -16,29 +14,20 @@ function main() {
     return;
   }
 
-  const engine = new Engine2D(canvas, gl);
-  const scene = new Scene2D(engine);
+  const engine = setup(canvas, gl);
+  engine.run();
+}
 
+const setup = (canvas, gl) => {
+  const engine = new Engine2D(canvas, gl);
+
+  const scene = new Scene2D(engine);
   const basicEntity = createEntityForScene(Entity, scene);
   const basicMesh = createMeshForEntity(Mesh, basicEntity);
 
-  requestAnimationFrame(() => scene.draw());
+  engine.setScene(scene);
 
-  var time = 0;
-  var moveSpeed = 100;
-
-  const testRender = (time_) => {
-    var deltaTime = time_ / 1000 - time;
-    time = time_ / 1000;
-    basicEntity.translation = [basicEntity.translation[0] + deltaTime * moveSpeed, basicEntity.translation[1] + deltaTime * moveSpeed];
-    if (basicEntity.translation[0] < multiply(gl.canvas.height * 1.0, 0.90)) {
-      scene.draw();
-      requestAnimationFrame(testRender);
-    }
-  }
-
-  testRender(time)
-
+  return engine;
 }
 
 main();
