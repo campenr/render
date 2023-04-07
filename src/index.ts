@@ -3,6 +3,7 @@
 import Engine2D from './engine.ts';
 import Scene2D, { createEntityForScene } from './scene.ts';
 import Entity from './entity.ts';
+import Mesh, { createMeshForEntity } from "./mesh.ts";
 
 import { multiply } from '../wasm/index.wasm';
 
@@ -19,6 +20,7 @@ function main() {
   const scene = new Scene2D(engine);
 
   const basicEntity = createEntityForScene(Entity, scene);
+  const basicMesh = createMeshForEntity(Mesh, basicEntity);
 
   requestAnimationFrame(() => scene.draw());
 

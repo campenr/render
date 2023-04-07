@@ -20,7 +20,7 @@ export default class Scene2D {
     draw() {
         console.log('drawing scene');
         this._objects.forEach(object => {
-            object.onUpdate();
+            object.update();
         })
     }
 }
