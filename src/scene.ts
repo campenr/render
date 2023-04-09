@@ -23,7 +23,6 @@ export default class Scene2D {
     }
 
     draw(): void {
-        console.log('drawing scene');
         this._entities.forEach(entity => {
             entity.update();
         })

@@ -115,24 +115,38 @@ function createProgram(gl, vertexShader, fragmentShader) {
 }
 
 class E_Square extends Entity {
-    translation: [number, number];
+    position: [number, number]; // x,y
+    direction: [number, number]; // x,y
     moveSpeed: number;
     time: number;
 
     constructor(scene) {
         super(scene);
-        this.translation = [0, 0];
+        // arrays are [x,y]
+        this.position = [0, 0];  // start at the top left
+        this.direction = [1, 1];  // start going to the right and down
         this.moveSpeed = 100;
         this.time = 0;
     }
 
     update() {
-        console.log('updating entity: ', this.translation);
         var deltaTime = this.scene.engine.time - this.time;
         this.time = this.scene.engine.time;
-        if (this.translation[0] < multiply(this.scene.engine.canvas.height * 1.0, 0.9)) {
-            this.translation = [this.translation[0] + deltaTime * this.moveSpeed, this.translation[1] + deltaTime * this.moveSpeed];
+
+        if (this.position[0] > multiply(this.scene.engine.canvas.width * 1.0, 0.92)) {
+            this.direction[0] = -1;
         }
+        if (this.position[0] < 0) {
+            this.direction[0] = 1;
+        }
+        if (this.position[1] > multiply(this.scene.engine.canvas.height * 1.0, 0.90)) {
+            this.direction[1] = -1;
+        }
+        if (this.position[1] < 0) {
+            this.direction[1] = 1;
+        }
+        this.position[0] = this.position[0] + deltaTime * this.moveSpeed * this.direction[0]
+        this.position[1] = this.position[1] + deltaTime * this.moveSpeed * this.direction[1]
         this.postUpdate();
     }
 }
@@ -222,7 +236,7 @@ class MS_Square extends Mesh {
         gl.uniform2f(this.resolutionUniformLocation, gl.canvas.width, gl.canvas.height);
 
         // Compute the matrices
-        var translationMatrix = m3.translation(this.entity.translation[0], this.entity.translation[1]);
+        var translationMatrix = m3.translation(this.entity.position[0], this.entity.position[1]);
 
         // Set the matrix.
         gl.uniformMatrix3fv(this.matrixLocation, false, translationMatrix);
