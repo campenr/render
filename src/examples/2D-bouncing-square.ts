@@ -1,10 +1,10 @@
 "use strict";
 
-import Engine2D from './engine';
-import Scene2D, { createEntityForScene } from './scene';
-import Entity from './entity';
-import Mesh, { createMeshForEntity } from "./mesh";
-import { multiply } from '../wasm/index.wasm';
+import Engine2D from '../engine';
+import Scene2D, { createEntityForScene } from '../scene';
+import Entity from '../entity';
+import Mesh, { createMeshForEntity } from "../mesh";
+import { multiply } from '../../wasm/index.wasm';
 
 var vertexShaderSource = `#version 300 es
 

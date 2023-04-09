@@ -3,11 +3,11 @@ const path = require("path");
 module.exports = {
     mode: 'development',
     devtool: 'inline-source-map',
-    entry: [
-        './src/index.ts',
-    ],
+    entry: {
+        '2D-bouncing-square': './src/examples/2D-bouncing-square.ts',
+    },
     output: {
-        filename: 'index.js',
+        filename: '[name].js',
         path: path.resolve(__dirname, 'public', 'static', 'build'),
         publicPath: '/static/'
     },
@@ -36,7 +36,8 @@ module.exports = {
     devServer: {
         static: [
             {
-                directory: path.join(__dirname, 'public'),
+                directory: path.join(__dirname, 'public', 'examples'),
+                serveIndex: true,
             },
             {
                 directory: path.resolve(__dirname, 'public', 'static', 'build'),
