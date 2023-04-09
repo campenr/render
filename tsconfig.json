@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "emitDeclarationOnly": true,
+    "declaration": true,
+  },
+  "include": [
+    "./src/**/*.ts",
+    "./wasm/**/*.ts",
+  ],
+  "exclude": [
+    "node_modules",
+    "./assembly_src/**/*.ts"
+  ]
+}

@@ -1,7 +1,12 @@
+import Scene2D from "./scene";
 
 export default class Engine2D {
+    canvas: any; // todo
+    gl: any; // todo
+    time: DOMHighResTimeStamp;
+    _currentScene: Scene2D; // todo use scene interface
 
-    constructor(canvas, glContext) {
+    constructor(canvas: any, glContext: any) {  // todo;
         this.canvas = canvas;
         this.gl = glContext;
         this.time;

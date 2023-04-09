@@ -1,26 +1,31 @@
+import Entity from "./entity";
+import Engine2D from "./engine";
+
 export const createEntityForScene = (entityClass, scene) => {
     const entity = new entityClass(scene);
     scene.addEntity(entity);
     return entity;
 }
 
-
 export default class Scene2D {
-    static dimensions = 2;
+
+    static dimensions: number = 2;
+    engine: Engine2D;
+    _entities: Array<Entity>;
 
     constructor(engine) {
         this.engine = engine;
-        this._objects = []
+        this._entities = []
     }
 
-    addEntity(object) {
-        this._objects.push(object);
+    addEntity(entity) {
+        this._entities.push(entity);
     }
 
-    draw() {
+    draw(): void {
         console.log('drawing scene');
-        this._objects.forEach(object => {
-            object.update();
+        this._entities.forEach(entity => {
+            entity.update();
         })
     }
 }

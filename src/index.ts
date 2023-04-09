@@ -1,10 +1,10 @@
 "use strict";
 
-import Engine2D from './engine.ts';
-import Scene2D, { createEntityForScene } from './scene.ts';
-import Entity from './entity.ts';
-import Mesh, { createMeshForEntity } from "./mesh.ts";
-import {multiply} from '../wasm/index.wasm';
+import Engine2D from './engine';
+import Scene2D, { createEntityForScene } from './scene';
+import Entity from './entity';
+import Mesh, { createMeshForEntity } from "./mesh";
+import { multiply } from '../wasm/index.wasm';
 
 var vertexShaderSource = `#version 300 es
 
@@ -115,6 +115,10 @@ function createProgram(gl, vertexShader, fragmentShader) {
 }
 
 class E_Square extends Entity {
+    translation: [number, number];
+    moveSpeed: number;
+    time: number;
+
     constructor(scene) {
         super(scene);
         this.translation = [0, 0];
@@ -134,7 +138,14 @@ class E_Square extends Entity {
 }
 
 class MS_Square extends Mesh {
-    constructor(entity) {
+    program: any;
+    resolutionUniformLocation: any;
+    matrixLocation: any;
+    positions: Array<number>;
+    vao: any;
+    entity: E_Square;
+
+    constructor(entity: E_Square) {
         super(entity);
         const gl = this.entity.scene.engine.gl;
 

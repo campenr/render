@@ -1,7 +1,8 @@
 const path = require("path");
 
 module.exports = {
-    mode: 'production',
+    mode: 'development',
+    devtool: 'inline-source-map',
     entry: [
         './src/index.ts',
     ],
@@ -19,11 +20,18 @@ module.exports = {
                     target: 'es2015'
                 },
             },
+            // {
+            //     test: /\.tsx?$/,
+            //     use: 'ts-loader',
+            //     exclude: /node_modules/,
+            // },
         ]
+    },
+    resolve: {
+        extensions: ['.ts', '.tsx', '.js', '.jsx'],
     },
     experiments: {
         asyncWebAssembly: true,
-        syncWebAssembly: true
     },
     devServer: {
         static: [
