@@ -5,6 +5,8 @@ import Scene2D, { createEntityForScene } from '../scene';
 import Entity from '../entity';
 import Mesh, { createMeshForEntity } from "../mesh";
 import { multiply } from '../../wasm/index.wasm';
+import { m3 } from "../math";
+import {createProgram, createShader} from "../shader";
 
 var vertexShaderSource = `#version 300 es
 
@@ -51,68 +53,6 @@ void main() {
 }
 `;
 
-type Matrix3 = [
-    number, number, number,
-    number, number, number,
-    number, number, number,
-]
-
-var m3 = {
-  translation: function translation(tx: number, ty: number) : Matrix3 {
-    return [
-      1, 0, 0,
-      0, 1, 0,
-      tx, ty, 1
-    ];
-  },
-
-  rotation: function rotation(angleInRadians: number) : Matrix3 {
-    var c = Math.cos(angleInRadians);
-    var s = Math.sin(angleInRadians);
-    return [
-      c,-s, 0,
-      s, c, 0,
-      0, 0, 1
-    ];
-  },
-
-  scaling: function scaling(sx: number, sy: number) : Matrix3 {
-    return [
-      sx, 0, 0,
-      0, sy, 0,
-      0, 0, 1
-    ];
-  },
-};
-
-function createShader(gl, type, source) {
-  var shader = gl.createShader(type);
-  gl.shaderSource(shader, source);
-  gl.compileShader(shader);
-  var success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
-  if (success) {
-    return shader;
-  }
-
-  console.log(gl.getShaderInfoLog(shader));  // eslint-disable-line
-  gl.deleteShader(shader);
-  return undefined;
-}
-
-function createProgram(gl, vertexShader, fragmentShader) {
-  var program = gl.createProgram();
-  gl.attachShader(program, vertexShader);
-  gl.attachShader(program, fragmentShader);
-  gl.linkProgram(program);
-  var success = gl.getProgramParameter(program, gl.LINK_STATUS);
-  if (success) {
-    return program;
-  }
-
-  console.log(gl.getProgramInfoLog(program));  // eslint-disable-line
-  gl.deleteProgram(program);
-  return undefined;
-}
 
 class E_Square extends Entity {
     position: [number, number]; // x,y
