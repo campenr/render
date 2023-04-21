@@ -5,7 +5,7 @@ module.exports = {
     devtool: 'inline-source-map',
     entry: {
         '2D-bouncing-square': './src/examples/2D-bouncing-square.ts',
-        '2D-ripple': './src/examples/2D-ripple.ts',
+        '2D-image': './src/examples/2D-image.ts',
     },
     output: {
         filename: '[name].js',
