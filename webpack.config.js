@@ -44,6 +44,10 @@ module.exports = {
                 directory: path.resolve(__dirname, 'public', 'static', 'build'),
                 publicPath: '/static/',
             },
+            {
+                directory: path.resolve(__dirname, 'public', 'static', 'image'),
+                publicPath: '/static/image/',
+            },
         ],
         compress: true,
         port: 9000
