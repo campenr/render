@@ -61,7 +61,6 @@ void main() {
 
 var image = new Image();
 image.src = "/static/image/flowers.jpg";
-window.image = image;
 
 class E_Plane extends Entity {
     dimensions: [number, number];
