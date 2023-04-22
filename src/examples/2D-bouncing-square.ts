@@ -7,7 +7,9 @@ import Mesh, { createMeshForEntity } from "../mesh";
 import { multiply } from '../../wasm/index.wasm';
 import { m3 } from "../math";
 import {createProgram, createShader} from "../shader";
+
 import App from "./App";
+import { store } from "./store";
 
 var vertexShaderSource = `#version 300 es
 
@@ -54,11 +56,12 @@ void main() {
 }
 `;
 
+store.set('moveSpeed', 100);
 
 class E_Square extends Entity {
     position: [number, number]; // x,y
     direction: [number, number]; // x,y
-    moveSpeed: number;
+    getMoveSpeed: number;
     time: number;
 
     constructor(scene) {
@@ -66,7 +69,7 @@ class E_Square extends Entity {
         // arrays are [x,y]
         this.position = [0, 0];  // start at the top left
         this.direction = [1, 1];  // start going to the right and down
-        this.moveSpeed = 100;
+        this.getMoveSpeed = () => store.get('moveSpeed');
         this.time = 0;
     }
 
@@ -86,8 +89,8 @@ class E_Square extends Entity {
         if (this.position[1] < 0) {
             this.direction[1] = 1;
         }
-        this.position[0] = this.position[0] + deltaTime * this.moveSpeed * this.direction[0]
-        this.position[1] = this.position[1] + deltaTime * this.moveSpeed * this.direction[1]
+        this.position[0] = this.position[0] + deltaTime * this.getMoveSpeed() * this.direction[0]
+        this.position[1] = this.position[1] + deltaTime * this.getMoveSpeed() * this.direction[1]
         this.postUpdate();
     }
 }
