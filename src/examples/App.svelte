@@ -2,9 +2,9 @@
     let fps = 0;
 </script>
 
-<div class="h-[100vh] grid grid-cols-3">
+<div class="grid grid-cols-3">
     <div class="col-span-2 border border-black">
-        <div class="border-b border-black relative">
+        <div class="relative">
             <div class="absolute top-0 left-0">
                 FPS: {fps}
             </div>

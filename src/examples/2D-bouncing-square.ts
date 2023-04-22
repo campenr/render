@@ -7,6 +7,7 @@ import Mesh, { createMeshForEntity } from "../mesh";
 import { multiply } from '../../wasm/index.wasm';
 import { m3 } from "../math";
 import {createProgram, createShader} from "../shader";
+import App from "./App";
 
 var vertexShaderSource = `#version 300 es
 
@@ -162,7 +163,7 @@ class MS_Square extends Mesh {
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
         // Clear the canvas
-        gl.clearColor(0, 0, 0, 0);
+        gl.clearColor(0, 0, 0, 1);
         gl.clear(gl.COLOR_BUFFER_BIT);
 
         // Tell it to use our program (pair of shaders)
@@ -212,5 +213,9 @@ const setup = (canvas, gl) => {
 
     return engine;
 }
+
+const app = new App({
+  target: document.getElementById('root'),
+});
 
 main();

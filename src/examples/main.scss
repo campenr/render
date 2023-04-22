@@ -1,2 +1,13 @@
 @tailwind base;
 @tailwind utilities;
+
+@layer base {
+    body {
+        @apply bg-neutral-700;
+        @apply text-white;
+    }
+
+    h1 {
+        @apply font-bold;
+    }
+}
