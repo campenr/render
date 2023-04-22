@@ -15,6 +15,12 @@ module.exports = {
     module: {
         rules: [
             {
+                test: /\.svelte$/,
+                use: {
+                    loader: 'svelte-loader',
+                },
+            },
+            {
                 test: /\.[jt]sx?$/,
                 loader: 'esbuild-loader',
                 options: {
@@ -29,7 +35,8 @@ module.exports = {
         ]
     },
     resolve: {
-        extensions: ['.ts', '.tsx', '.js', '.jsx'],
+        extensions: ['.ts', '.tsx', '.js', '.jsx', '.svelte'],
+        conditionNames: ['require', 'svelte'],
     },
     experiments: {
         asyncWebAssembly: true,

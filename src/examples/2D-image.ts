@@ -7,6 +7,7 @@ import Mesh, { createMeshForEntity } from "../mesh";
 import { multiply } from '../../wasm/index.wasm';
 import { m3 } from "../math";
 import {createProgram, createShader} from "../shader";
+import App from "./App";
 
 
 var vertexShaderSource = `#version 300 es
@@ -265,5 +266,9 @@ const setup = (canvas, gl) => {
 
     return engine;
 }
+
+const app = new App({
+  target: document.getElementById('root'),
+});
 
 main();
