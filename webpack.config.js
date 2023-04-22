@@ -1,9 +1,13 @@
 const path = require("path");
 
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+
+
 module.exports = {
     mode: 'development',
     devtool: 'inline-source-map',
     entry: {
+        'main': './src/examples/main.scss',
         '2D-bouncing-square': './src/examples/2D-bouncing-square.ts',
         '2D-image': './src/examples/2D-image.ts',
     },
@@ -14,6 +18,25 @@ module.exports = {
     },
     module: {
         rules: [
+            {
+                test: /\.(scss|css)$/,
+                use: [
+                    MiniCssExtractPlugin.loader,
+                    'css-loader',
+                    {
+                        loader: 'postcss-loader',
+                        options: {
+                            postcssOptions: {
+                                plugins: [
+                                    require('autoprefixer'),
+                                    require('tailwindcss'),
+                                ],
+                            },
+                        },
+                    },
+                    'sass-loader',
+                ],
+            },
             {
                 test: /\.svelte$/,
                 use: {
@@ -34,6 +57,11 @@ module.exports = {
             // },
         ]
     },
+    plugins: [
+        new MiniCssExtractPlugin({
+            filename: 'main.css',
+        }),
+    ],
     resolve: {
         extensions: ['.ts', '.tsx', '.js', '.jsx', '.svelte'],
         conditionNames: ['require', 'svelte'],
@@ -56,7 +84,8 @@ module.exports = {
                 publicPath: '/static/image/',
             },
         ],
+        watchFiles: ['src/**/*', 'public/**/*'],
         compress: true,
-        port: 9000
+        port: 9000,
     }
 }
