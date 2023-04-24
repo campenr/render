@@ -1,13 +1,16 @@
 <script>
-    let fps = 0;
-    import {store} from "./store"
+    import { fps } from "./store"
+    let fpsValue;
+    fps.subscribe((value) => fpsValue = value)
+
+    import { store } from "./store"
 </script>
 
 <div class="grid grid-cols-3">
     <div class="col-span-2 border border-black">
         <div class="relative">
             <div class="absolute top-0 left-0">
-                FPS: {fps}
+                FPS: { fpsValue }
             </div>
             <canvas id="glcanvas" width="640" height="480" class="w-full h-auto"></canvas>
         </div>
