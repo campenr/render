@@ -9,7 +9,7 @@ import { m3 } from "../math";
 import {createProgram, createShader} from "../shader";
 
 import App from "./App";
-import { store } from "./store";
+import { controls } from "./store";
 
 var vertexShaderSource = `#version 300 es
 
@@ -56,7 +56,7 @@ void main() {
 }
 `;
 
-store.set('moveSpeed', 100);
+controls['moveSpeed'] = 100;
 
 class E_Square extends Entity {
     position: [number, number]; // x,y
@@ -69,7 +69,7 @@ class E_Square extends Entity {
         // arrays are [x,y]
         this.position = [0, 0];  // start at the top left
         this.direction = [1, 1];  // start going to the right and down
-        this.getMoveSpeed = () => store.get('moveSpeed');
+        this.getMoveSpeed = () => controls['moveSpeed'];
         this.time = 0;
     }
 

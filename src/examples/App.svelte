@@ -3,7 +3,14 @@
     let fpsValue;
     fps.subscribe((value) => fpsValue = value)
 
-    import { store } from "./store"
+    import { controls } from "./store"
+    let controlItems = [];
+    const ignored = ['set', 'update', 'subscribe'];
+    Object.keys(controls).forEach(item => {
+        if (!ignored.includes(item)) {
+            controlItems.push(item);
+        }
+    })
 </script>
 
 <div class="grid grid-cols-3">
@@ -21,19 +28,21 @@
                 <h1>Demo: { document.title }</h1>
             </div>
         </div>
-        <div class="border-b border-black">
-            <div class="flex px-1">
-                <div class="mr-auto">Move Speed:</div>
-                <div>
-                    <input
-                        type="number"
-                        value="{ store.get('moveSpeed') }"
-                        class="bg-neutral-700 w-[60px]"
-                        min="0" max="250"
-                        on:change="{(e) => store.set('moveSpeed', e.target.value)}"
-                    >
+        { #each controlItems as control }
+            <div class="border-b border-black">
+                <div class="flex px-1">
+                    <div class="mr-auto">{ control }:</div>
+                    <div>
+                        <input
+                            type="number"
+                            value="{ controls[control] }"
+                            class="bg-neutral-700 w-[60px]"
+                            min="0" max="250"
+                            on:change="{(e) => controls[control] = e.target.value}"
+                        >
+                    </div>
                 </div>
             </div>
-        </div>
+        {/each}
     </div>
 </div>
