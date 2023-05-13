@@ -58,24 +58,30 @@ void main() {
 
 controls['moveSpeed'] = 100;
 
+function getMoveSpeed() {
+    return controls['moveSpeed'];
+}
+
 class E_Square extends Entity {
     position: [number, number]; // x,y
     direction: [number, number]; // x,y
     getMoveSpeed: number;
     time: number;
 
-    constructor(scene) {
+    constructor(scene, config) {
+        const { position, direction } = config;
         super(scene);
         // arrays are [x,y]
-        this.position = [0, 0];  // start at the top left
-        this.direction = [1, 1];  // start going to the right and down
-        this.getMoveSpeed = () => controls['moveSpeed'];
+        this.position = position;
+        this.direction = direction;
+        this.getMoveSpeed = getMoveSpeed;
         this.time = 0;
     }
 
     update() {
         var deltaTime = this.scene.engine.time - this.time;
         this.time = this.scene.engine.time;
+        const moveSpeed = this.getMoveSpeed() as number;
 
         if (this.position[0] > multiply(this.scene.engine.canvas.width * 1.0, 0.92)) {
             this.direction[0] = -1;
@@ -89,8 +95,8 @@ class E_Square extends Entity {
         if (this.position[1] < 0) {
             this.direction[1] = 1;
         }
-        this.position[0] = this.position[0] + deltaTime * this.getMoveSpeed() * this.direction[0]
-        this.position[1] = this.position[1] + deltaTime * this.getMoveSpeed() * this.direction[1]
+        this.position[0] = this.position[0] + deltaTime * moveSpeed * this.direction[0]
+        this.position[1] = this.position[1] + deltaTime * moveSpeed * this.direction[1]
         this.postUpdate();
     }
 }
@@ -209,11 +215,29 @@ const setup = (canvas, gl) => {
     const engine = new Engine2D(canvas, gl);
 
     const scene = new Scene2D(engine);
-    const basicEntity = createEntityForScene(E_Square, scene);
-    const basicMesh = createMeshForEntity(MS_Square, basicEntity);
+
+    const entity_1 = createEntityForScene(
+        E_Square,
+        scene,
+        {
+            position: [0, 0],
+            direction: [1, 1],
+        }
+    );
+    createMeshForEntity(MS_Square, entity_1);
+
+    // @todo: currently doesn't work as the entities meshes share draw state.
+    // const entity_2 = createEntityForScene(
+    //     E_Square,
+    //     scene,
+    //     {
+    //         position: [0, 0],
+    //         direction: [1, 1],
+    //     }
+    // );
+    // createMeshForEntity(MS_Square, entity_2);
 
     engine.setScene(scene);
-
     return engine;
 }
 

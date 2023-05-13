@@ -1,8 +1,8 @@
 import Entity from "./entity";
 import Engine2D from "./engine";
 
-export const createEntityForScene = (entityClass, scene) => {
-    const entity = new entityClass(scene);
+export const createEntityForScene = (entityClass, scene, config) => {
+    const entity = new entityClass(scene, config);
     scene.addEntity(entity);
     return entity;
 }
