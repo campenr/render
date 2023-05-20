@@ -7,8 +7,9 @@ import Mesh, { createMeshForEntity } from "../mesh";
 import { multiply } from '../../wasm/index.wasm';
 import { m3 } from "../math";
 import {createProgram, createShader} from "../shader";
-import App from "./App";
 
+import App from "./App";
+import { controls } from "./store";
 
 var vertexShaderSource = `#version 300 es
 // an attribute is an input (in) to a vertex shader.
@@ -49,6 +50,10 @@ precision highp float;
 // our texture
 uniform sampler2D u_image;
 
+// the convolution kernel data
+uniform float u_kernel[9];
+uniform float u_kernelWeight;
+
 // the texCoords passed in from the vertex shader.
 in vec2 v_texCoord;
 
@@ -56,11 +61,24 @@ in vec2 v_texCoord;
 out vec4 outColor;
 
 void main() {
-  outColor = texture(u_image, v_texCoord);
+  vec2 onePixel = vec2(1) / vec2(textureSize(u_image, 0));
+
+  vec4 colorSum =
+      texture(u_image, v_texCoord + onePixel * vec2(-1, -1)) * u_kernel[0] +
+      texture(u_image, v_texCoord + onePixel * vec2( 0, -1)) * u_kernel[1] +
+      texture(u_image, v_texCoord + onePixel * vec2( 1, -1)) * u_kernel[2] +
+      texture(u_image, v_texCoord + onePixel * vec2(-1,  0)) * u_kernel[3] +
+      texture(u_image, v_texCoord + onePixel * vec2( 0,  0)) * u_kernel[4] +
+      texture(u_image, v_texCoord + onePixel * vec2( 1,  0)) * u_kernel[5] +
+      texture(u_image, v_texCoord + onePixel * vec2(-1,  1)) * u_kernel[6] +
+      texture(u_image, v_texCoord + onePixel * vec2( 0,  1)) * u_kernel[7] +
+      texture(u_image, v_texCoord + onePixel * vec2( 1,  1)) * u_kernel[8] ;
+  outColor = vec4((colorSum / u_kernelWeight).rgb, 1);
 }`;
 
 var image = new Image();
 image.src = "/static/image/flowers.jpg";
+
 
 class E_Plane extends Entity {
     dimensions: [number, number];
@@ -95,6 +113,29 @@ function setRectangle(gl, x, y, width, height) {
   ]), gl.STATIC_DRAW);
 }
 
+function computeKernelWeight(kernel) {
+    const weight = kernel.reduce(function(prev, curr) {
+        return prev + curr;
+    });
+    return weight <= 0 ? 1 : weight;
+}
+
+controls['kernel'] = {
+    'type': 'choice',
+    'value': 'normal',
+    'choices': [
+        'normal',
+        'gaussianBlur',
+        'sharpen',
+        'edgeDetect',
+        'emboss',
+    ],
+};
+
+function getKernel() {
+    return controls['kernel'].value;
+}
+
 class MS_Plane extends Mesh {
     program: any;
     resolutionUniformLocation: any;
@@ -102,6 +143,7 @@ class MS_Plane extends Mesh {
     positions: Array<number>;
     vao: any;
     entity: E_Plane;
+    getKernel: String;
 
     constructor(entity: E_Plane) {
         super(entity);
@@ -121,10 +163,10 @@ class MS_Plane extends Mesh {
         var texCoordAttributeLocation = gl.getAttribLocation(program, "a_texCoord");
 
         // look up uniform locations
-        var resolutionLocation = gl.getUniformLocation(program, "u_resolution");
-        this.resolutionLocation = resolutionLocation;
-        var imageLocation = gl.getUniformLocation(program, "u_image");
-        this.imageLocation = imageLocation;
+        this.resolutionLocation = gl.getUniformLocation(program, "u_resolution");
+        this.imageLocation = gl.getUniformLocation(program, "u_image");
+        this.kernelLocation = gl.getUniformLocation(program, "u_kernel[0]");
+        this.kernelWeightLocation = gl.getUniformLocation(program, "u_kernelWeight");
 
         // Create a vertex array object (attribute state)
         var vao = gl.createVertexArray();
@@ -135,14 +177,13 @@ class MS_Plane extends Mesh {
 
         // Create a buffer and put a single pixel space rectangle in
         // it (2 triangles)
-        var positionBuffer = gl.createBuffer();
-        this.positionBuffer = positionBuffer;
+        this.positionBuffer = gl.createBuffer();
 
         // Turn on the attribute
         gl.enableVertexAttribArray(positionAttributeLocation);
 
         // Bind it to ARRAY_BUFFER (think of it as ARRAY_BUFFER = positionBuffer)
-        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
 
         // Tell the attribute how to get data out of positionBuffer (ARRAY_BUFFER)
         var size = 2;          // 2 components per iteration
@@ -198,6 +239,36 @@ class MS_Plane extends Mesh {
         var srcFormat = gl.RGBA;        // format of data we are supplying
         var srcType = gl.UNSIGNED_BYTE; // type of data we are supplying
         gl.texImage2D(gl.TEXTURE_2D, mipLevel, internalFormat, srcFormat, srcType, image);
+
+        // Define several convolution kernels
+        this.kernels = {
+            normal: [
+              0, 0, 0,
+              0, 1, 0,
+              0, 0, 0,
+            ],
+            gaussianBlur: [
+              0.045, 0.122, 0.045,
+              0.122, 0.332, 0.122,
+              0.045, 0.122, 0.045,
+            ],
+            sharpen: [
+               -1, -1, -1,
+               -1, 16, -1,
+               -1, -1, -1,
+            ],
+            edgeDetect: [
+               -1, -1, -1,
+               -1,  8, -1,
+               -1, -1, -1,
+            ],
+            emboss: [
+               -2, -1,  0,
+               -1,  1,  1,
+                0,  1,  2,
+            ],
+        };
+        this.getKernel = getKernel;
     }
 
     update() {
@@ -222,6 +293,11 @@ class MS_Plane extends Mesh {
 
         // Tell the shader to get the texture from texture unit 0
         gl.uniform1i(this.imageLocation, 0);
+
+        // set the kernel and it's weight
+        const activeKernel = this.getKernel();
+        gl.uniform1fv(this.kernelLocation, this.kernels[activeKernel]);
+        gl.uniform1f(this.kernelWeightLocation, computeKernelWeight(this.kernels[activeKernel]));
 
         // Bind the position buffer so gl.bufferData that will be called
         // in setRectangle puts data in the position buffer

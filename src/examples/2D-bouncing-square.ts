@@ -56,10 +56,13 @@ void main() {
 }
 `;
 
-controls['moveSpeed'] = 100;
+controls['moveSpeed'] = {
+    'type': 'number',
+    'value': 100,
+};
 
 function getMoveSpeed() {
-    return controls['moveSpeed'];
+    return controls['moveSpeed'].value;
 }
 
 class E_Square extends Entity {

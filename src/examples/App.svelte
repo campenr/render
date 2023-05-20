@@ -1,9 +1,10 @@
 <script>
-    import { fps } from "./store"
+    import Widget from './widgets.svelte';
+    import { controls, fps } from './store'
+
     let fpsValue;
     fps.subscribe((value) => fpsValue = value)
 
-    import { controls } from "./store"
     let controlItems = [];
     const ignored = ['set', 'update', 'subscribe'];
     Object.keys(controls).forEach(item => {
@@ -28,21 +29,8 @@
                 <h1>Demo: { document.title }</h1>
             </div>
         </div>
-        { #each controlItems as control }
-            <div class="border-b border-black">
-                <div class="flex px-1">
-                    <div class="mr-auto">{ control }:</div>
-                    <div>
-                        <input
-                            type="number"
-                            value="{ controls[control] }"
-                            class="bg-neutral-700 w-[60px]"
-                            min="0" max="250"
-                            on:change="{(e) => controls[control] = e.target.value}"
-                        >
-                    </div>
-                </div>
-            </div>
-        {/each}
+        { #each controlItems as controlName }
+            <Widget controlName="{ controlName }" controlItem="{ controls[controlName] }" />
+        { /each }
     </div>
 </div>
