@@ -3,16 +3,15 @@ import ECS from "./ecs";
 
 
 export default class Engine2D {
-    renderer: any; // todo
     ecs: ECS
+    systems: any; // todo
     time: DOMHighResTimeStamp;
-    // _currentScene: Scene2D; // todo use scene interface
     _fpsHistory: any  // todo
 
-    constructor(renderer: any, ecs: ECS) {  // todo;
-        this.renderer = renderer;
+    constructor(systems: any, ecs: ECS) {  // todo;
+        this.systems = systems;
         this.ecs = ecs;
-        this.time;
+        this.time = 0;
         // we average over a range of frames to calculate FPS to somewhat stabilise the values
         this._fpsHistory = new Array(120);
         this._fpsHistory.fill(0);
@@ -25,10 +24,11 @@ export default class Engine2D {
     tick(currentTime: DOMHighResTimeStamp) {
         const currentTime_ms = currentTime / 1000;
         const deltaTime = currentTime_ms - this.time;
-
         this.time = currentTime_ms
 
-        this.renderer.update(this.ecs)
+        for (let i = 0; i < this.systems.length; i++) {
+            this.systems[i].update(this.ecs, deltaTime)
+        }
 
         const fps_ = Math.round((1 / deltaTime))
         this._fpsHistory.push(fps_)

@@ -1,18 +1,13 @@
 "use strict";
 
 import Engine2D from '../engine';
-// import Scene2D, { createEntityForScene } from '../scene';
-import Entity from '../entity';
-import Mesh, { createMeshForEntity } from "../mesh";
-import { multiply } from '../../wasm/index.wasm';
 import { m3 } from "../math";
-import {createProgram, createShader} from "../shader";
 
 import App from "./App";
 import { controls } from "./store";
 import ECS from "../ecs";
-import RenderingSystem from "../renderer";
-import {Position, Render, Velocity} from "../components";
+import { Position, Render, Velocity } from "../components";
+import { multiply } from '../../wasm/index.wasm'
 
 var vertexShaderSource = `#version 300 es
 
@@ -69,144 +64,166 @@ function getMoveSpeed() {
 }
 
 
+class RenderingSystem {
+    private gl: WebGLRenderingContext;
+    private resolutionUniformLocation: any;
+    private matrixLocation: any;
+    private positions: Array<number>;
+
+    constructor(canvas: HTMLCanvasElement, vertexShaderSource: string, fragmentShaderSource: string) {
+        this.gl = canvas.getContext("webgl2");
+        if (!this.gl) {
+            return;
+        }
+        this.initGL(vertexShaderSource, fragmentShaderSource);
+    }
+
+    private initGL(vertexShaderSource: string, fragmentShaderSource: string): void {
+        const vertexShader = this.createShader(this.gl.VERTEX_SHADER, vertexShaderSource);
+        const fragmentShader = this.createShader(this.gl.FRAGMENT_SHADER, fragmentShaderSource);
+        const program = this.createProgram(vertexShader, fragmentShader);
+        this.gl.useProgram(program);
+
+        // look up where the vertex data needs to go.
+        const positionAttributeLocation = this.gl.getAttribLocation(program, "a_position");
+
+        // look up uniform locations
+        this.resolutionUniformLocation = this.gl.getUniformLocation(program, "u_resolution");
+        this.matrixLocation = this.gl.getUniformLocation(program, "u_matrix");
+
+        // Tell WebGL how to convert from clip space to pixels
+        this.gl.viewport(0, 0, this.gl.canvas.width, this.gl.canvas.height);
+
+        // Pass in the canvas resolution so we can convert from
+        // pixels to clipspace in the shader
+        this.gl.uniform2f(this.resolutionUniformLocation, this.gl.canvas.width, this.gl.canvas.height);
+
+        // Create a buffer and put three 2d clip space points in it
+        const positionBuffer = this.gl.createBuffer();
+
+        // Bind it to ARRAY_BUFFER (think of it as ARRAY_BUFFER = positionBuffer)
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, positionBuffer);
+
+        // array of start/end points in clip-space
+        // Note: this means all entities are squares
+        const positions = [
+            0, 0,
+            50, 0,
+            0, 50,
+            50, 0,
+            50, 50,
+            0, 50,
+        ];
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(positions), this.gl.STATIC_DRAW);
+        this.positions = positions;
+
+        // Create a vertex array object (attribute state)
+        const vao = this.gl.createVertexArray();
+
+        // and make it the one we're currently working with
+        this.gl.bindVertexArray(vao);
+
+        // Turn on the attribute
+        this.gl.enableVertexAttribArray(positionAttributeLocation);
+
+        // Tell the attribute how to get data out of positionBuffer (ARRAY_BUFFER)
+        var size = 2;          // two data points per vertex (x,y)
+        var type = this.gl.FLOAT;   // the data is 32bit floats
+        var normalize = false; // don't normalize the data
+        var stride = 0;        // 0 = move forward size * sizeof(type) each iteration to get the next position
+        var offset = 0;        // start at the beginning of the buffer
+        this.gl.vertexAttribPointer(positionAttributeLocation, size, type, normalize, stride, offset);
+    }
+
+    private createShader(type: number, source: string): WebGLShader {
+        const shader = this.gl.createShader(type);
+        this.gl.shaderSource(shader, source);
+        this.gl.compileShader(shader);
+        if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS)) {
+            console.error(this.gl.getShaderInfoLog(shader));
+            this.gl.deleteShader(shader);
+            throw new Error("Shader compile failed");
+        }
+        return shader;
+    }
+
+    private createProgram(vertexShader: WebGLShader, fragmentShader: WebGLShader): WebGLProgram {
+        const program = this.gl.createProgram();
+        this.gl.attachShader(program, vertexShader);
+        this.gl.attachShader(program, fragmentShader);
+        this.gl.linkProgram(program);
+        if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
+            console.error(this.gl.getProgramInfoLog(program));
+            this.gl.deleteProgram(program);
+            throw new Error("Program link failed");
+        }
+        return program;
+    }
+
+    update(ecs: ECS, deltaTime: number): void {
+        // Clear the canvas
+        this.gl.clearColor(0, 0, 0, 1);
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+
+        // iterate and render the entities
+        // Note: we could look to batch draws for perf.
+        const entities = ecs.getEntitiesWithComponents([Render, Position]);
+        for (let i = 0; i < entities.length; i++) {
+            const entity = entities[i];
+
+            // set the positions in the buffer
+            const position = ecs.getComponent(entity, Position);
+            const translationMatrix = m3.translation(position.x, position.y);
+            this.gl.uniformMatrix3fv(this.matrixLocation, false, translationMatrix);
+
+            // draw
+            const primitiveType = this.gl.TRIANGLES;
+            const offset = 0;
+            const count = this.positions.length / 2;  // positions / values per position
+            this.gl.drawArrays(primitiveType, offset, count);
+
+        }
+    }
+}
 
 
-// class E_Square extends Entity {
-//     position: [number, number]; // x,y
-//     direction: [number, number]; // x,y
-//     getMoveSpeed: number;
-//     time: number;
-//
-//     constructor(scene, config) {
-//         const { position, direction } = config;
-//         super(scene);
-//         // arrays are [x,y]
-//         this.position = position;
-//         this.direction = direction;
-//         this.getMoveSpeed = getMoveSpeed;
-//         this.time = 0;
-//     }
-//
-//     update() {
-//         var deltaTime = this.scene.engine.time - this.time;
-//         this.time = this.scene.engine.time;
-//         const moveSpeed = this.getMoveSpeed() as number;
-//
-//         if (this.position[0] > multiply(this.scene.engine.canvas.width * 1.0, 0.92)) {
-//             this.direction[0] = -1;
-//         }
-//         if (this.position[0] < 0) {
-//             this.direction[0] = 1;
-//         }
-//         if (this.position[1] > multiply(this.scene.engine.canvas.height * 1.0, 0.90)) {
-//             this.direction[1] = -1;
-//         }
-//         if (this.position[1] < 0) {
-//             this.direction[1] = 1;
-//         }
-//         this.position[0] = this.position[0] + deltaTime * moveSpeed * this.direction[0]
-//         this.position[1] = this.position[1] + deltaTime * moveSpeed * this.direction[1]
-//         this.postUpdate();
-//     }
-// }
-//
-// class MS_Square extends Mesh {
-//     program: any;
-//     resolutionUniformLocation: any;
-//     matrixLocation: any;
-//     positions: Array<number>;
-//     vao: any;
-//     entity: E_Square;
-//
-//     constructor(entity: E_Square) {
-//         super(entity);
-//         const gl = this.entity.scene.engine.gl;
-//
-//         // create GLSL shaders, upload the GLSL source, compile the shaders
-//         var vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
-//         var fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
-//
-//         // Link the two shaders into a program
-//         var program = createProgram(gl, vertexShader, fragmentShader);
-//         this.program = program;
-//
-//         // look up where the vertex data needs to go.
-//         var positionAttributeLocation = gl.getAttribLocation(program, "a_position");
-//
-//         // look up uniform locations
-//         this.resolutionUniformLocation = gl.getUniformLocation(program, "u_resolution");
-//         this.matrixLocation = gl.getUniformLocation(program, "u_matrix");
-//
-//         // Create a buffer and put three 2d clip space points in it
-//         var positionBuffer = gl.createBuffer();
-//
-//         // Bind it to ARRAY_BUFFER (think of it as ARRAY_BUFFER = positionBuffer)
-//         gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-//
-//         // array of start/end points in clip-space
-//         var positions = [
-//             0, 0,
-//             50, 0,
-//             0, 50,
-//             50, 0,
-//             50, 50,
-//             0, 50,
-//         ];
-//         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
-//         this.positions = positions;
-//
-//         // Create a vertex array object (attribute state)
-//         var vao = gl.createVertexArray();
-//         this.vao = vao;
-//
-//         // and make it the one we're currently working with
-//         gl.bindVertexArray(vao);
-//
-//         // Turn on the attribute
-//         gl.enableVertexAttribArray(positionAttributeLocation);
-//
-//         // Tell the attribute how to get data out of positionBuffer (ARRAY_BUFFER)
-//         var size = 2;          // two data points per vertex (x,y)
-//         var type = gl.FLOAT;   // the data is 32bit floats
-//         var normalize = false; // don't normalize the data
-//         var stride = 0;        // 0 = move forward size * sizeof(type) each iteration to get the next position
-//         var offset = 0;        // start at the beginning of the buffer
-//         gl.vertexAttribPointer(positionAttributeLocation, size, type, normalize, stride, offset);
-//     }
-//
-//     update() {
-//         const gl = this.entity.scene.engine.gl;
-//
-//         // Tell WebGL how to convert from clip space to pixels
-//         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-//
-//         // Clear the canvas
-//         gl.clearColor(0, 0, 0, 1);
-//         gl.clear(gl.COLOR_BUFFER_BIT);
-//
-//         // Tell it to use our program (pair of shaders)
-//         gl.useProgram(this.program);
-//
-//         // Bind the attribute/buffer set we want.
-//         gl.bindVertexArray(this.vao);
-//
-//         // Pass in the canvas resolution so we can convert from
-//         // pixels to clipspace in the shader
-//         gl.uniform2f(this.resolutionUniformLocation, gl.canvas.width, gl.canvas.height);
-//
-//         // Compute the matrices
-//         var translationMatrix = m3.translation(this.entity.position[0], this.entity.position[1]);
-//
-//         // Set the matrix.
-//         gl.uniformMatrix3fv(this.matrixLocation, false, translationMatrix);
-//
-//         // draw
-//         var primitiveType = gl.TRIANGLES;
-//         var offset = 0;
-//         var count = this.positions.length / 2;  // positions / values per position
-//         gl.drawArrays(primitiveType, offset, count);
-//     }
-// }
+class MovementSystem {
+    canvas: HTMLCanvasElement;
+
+    constructor(canvas: HTMLCanvasElement) {
+        this.canvas = canvas;
+    }
+
+    update(ecs: ECS, deltaTime: number): void {
+        const moveSpeed = getMoveSpeed() as number;
+
+        const entities = ecs.getEntitiesWithComponents([Position, Velocity]);
+        for (let i = 0; i < entities.length; i++) {
+            const entity = entities[i];
+
+            const position = ecs.getComponent(entity, Position);
+            const velocity = ecs.getComponent(entity, Velocity);
+
+            // TODO: would be good to put this collision logic into its own component
+            if (position.x > multiply(this.canvas.width * 1.0, 0.92)) {
+                velocity.dx = -1;
+            }
+            if (position.x < 0) {
+                velocity.dx = 1;
+            }
+            if (position.y > multiply(this.canvas.height * 1.0, 0.90)) {
+                velocity.dy = -1;
+            }
+            if (position.y < 0) {
+                velocity.dy = 1;
+            }
+
+            position.x = position.x + deltaTime * moveSpeed * velocity.dx;
+            position.y = position.y + deltaTime * moveSpeed * velocity.dy;
+        }
+    }
+}
+
 
 function main() {
 
@@ -215,8 +232,12 @@ function main() {
     const ecs = new ECS();
 
     const renderingSystem = new RenderingSystem(canvas, vertexShaderSource, fragmentShaderSource);
+    const movementSystem = new MovementSystem(canvas);
 
-    const engine = new Engine2D(renderingSystem, ecs)
+    const engine = new Engine2D(
+        [renderingSystem, movementSystem],
+        ecs
+    )
 
     const entity1 = ecs.createEntity();
     ecs.addComponent(entity1, new Position(0, 0));
@@ -225,7 +246,7 @@ function main() {
 
     const entity2 = ecs.createEntity();
     ecs.addComponent(entity2, new Position(100, 200));
-    ecs.addComponent(entity1, new Velocity(1, 1));
+    ecs.addComponent(entity2, new Velocity(1, -1));
     ecs.addComponent(entity2, new Render());
 
     engine.run()
