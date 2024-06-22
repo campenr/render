@@ -1,27 +1,21 @@
-import Scene2D from "./scene";
-
 import { fps } from "./examples/store"
+import ECS from "./ecs";
 
 
 export default class Engine2D {
-    canvas: any; // todo
-    gl: any; // todo
+    renderer: any; // todo
+    ecs: ECS
     time: DOMHighResTimeStamp;
-    _currentScene: Scene2D; // todo use scene interface
+    // _currentScene: Scene2D; // todo use scene interface
     _fpsHistory: any  // todo
 
-    constructor(canvas: any, glContext: any) {  // todo;
-        this.canvas = canvas;
-        this.gl = glContext;
+    constructor(renderer: any, ecs: ECS) {  // todo;
+        this.renderer = renderer;
+        this.ecs = ecs;
         this.time;
-        this._currentScene;
         // we average over a range of frames to calculate FPS to somewhat stabilise the values
         this._fpsHistory = new Array(120);
         this._fpsHistory.fill(0);
-    }
-
-    setScene(scene) {
-        this._currentScene = scene;
     }
 
     run() {
@@ -33,9 +27,8 @@ export default class Engine2D {
         const deltaTime = currentTime_ms - this.time;
 
         this.time = currentTime_ms
-        if (this._currentScene) {
-            this._currentScene.draw();
-        }
+
+        this.renderer.update(this.ecs)
 
         const fps_ = Math.round((1 / deltaTime))
         this._fpsHistory.push(fps_)
