@@ -8,6 +8,7 @@ import { controls } from "./store";
 import ECS from "../ecs";
 import { Position, Render, Velocity } from "../components";
 import { multiply } from '../../wasm/index.wasm'
+import { createProgram, createShader } from "../shader";
 
 var vertexShaderSource = `#version 300 es
 
@@ -79,9 +80,9 @@ class RenderingSystem {
     }
 
     private initGL(vertexShaderSource: string, fragmentShaderSource: string): void {
-        const vertexShader = this.createShader(this.gl.VERTEX_SHADER, vertexShaderSource);
-        const fragmentShader = this.createShader(this.gl.FRAGMENT_SHADER, fragmentShaderSource);
-        const program = this.createProgram(vertexShader, fragmentShader);
+        const vertexShader = createShader(this.gl, this.gl.VERTEX_SHADER, vertexShaderSource);
+        const fragmentShader = createShader(this.gl, this.gl.FRAGMENT_SHADER, fragmentShaderSource);
+        const program = createProgram(this.gl, vertexShader, fragmentShader);
         this.gl.useProgram(program);
 
         // look up where the vertex data needs to go.
@@ -133,31 +134,6 @@ class RenderingSystem {
         var stride = 0;        // 0 = move forward size * sizeof(type) each iteration to get the next position
         var offset = 0;        // start at the beginning of the buffer
         this.gl.vertexAttribPointer(positionAttributeLocation, size, type, normalize, stride, offset);
-    }
-
-    private createShader(type: number, source: string): WebGLShader {
-        const shader = this.gl.createShader(type);
-        this.gl.shaderSource(shader, source);
-        this.gl.compileShader(shader);
-        if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS)) {
-            console.error(this.gl.getShaderInfoLog(shader));
-            this.gl.deleteShader(shader);
-            throw new Error("Shader compile failed");
-        }
-        return shader;
-    }
-
-    private createProgram(vertexShader: WebGLShader, fragmentShader: WebGLShader): WebGLProgram {
-        const program = this.gl.createProgram();
-        this.gl.attachShader(program, vertexShader);
-        this.gl.attachShader(program, fragmentShader);
-        this.gl.linkProgram(program);
-        if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
-            console.error(this.gl.getProgramInfoLog(program));
-            this.gl.deleteProgram(program);
-            throw new Error("Program link failed");
-        }
-        return program;
     }
 
     update(ecs: ECS, deltaTime: number): void {

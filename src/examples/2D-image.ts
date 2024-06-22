@@ -1,15 +1,12 @@
 "use strict";
 
 import Engine2D from '../engine';
-import Entity from '../entity';
-import { multiply } from '../../wasm/index.wasm';
-import { m3 } from "../math";
-import {createProgram, createShader} from "../shader";
+import { createProgram, createShader } from "../shader";
 
 import App from "./App";
 import { controls } from "./store";
 import ECS from "../ecs";
-import {Position, Render} from "../components";
+import { Position, Render } from "../components";
 
 var vertexShaderSource = `#version 300 es
 // an attribute is an input (in) to a vertex shader.
@@ -156,9 +153,9 @@ class RenderingSystem {
     }
 
     private initGL(vertexShaderSource: string, fragmentShaderSource: string): void {
-        const vertexShader = this.createShader(this.gl.VERTEX_SHADER, vertexShaderSource);
-        const fragmentShader = this.createShader(this.gl.FRAGMENT_SHADER, fragmentShaderSource);
-        const program = this.createProgram(vertexShader, fragmentShader);
+        const vertexShader = createShader(this.gl, this.gl.VERTEX_SHADER, vertexShaderSource);
+        const fragmentShader = createShader(this.gl, this.gl.FRAGMENT_SHADER, fragmentShaderSource);
+        const program = createProgram(this.gl, vertexShader, fragmentShader);
         this.gl.useProgram(program);
 
         // look up where the vertex data needs to go.
@@ -248,31 +245,6 @@ class RenderingSystem {
         var srcFormat = this.gl.RGBA;        // format of data we are supplying
         var srcType = this.gl.UNSIGNED_BYTE; // type of data we are supplying
         this.gl.texImage2D(this.gl.TEXTURE_2D, mipLevel, internalFormat, srcFormat, srcType, image);
-    }
-
-    private createShader(type: number, source: string): WebGLShader {
-        const shader = this.gl.createShader(type);
-        this.gl.shaderSource(shader, source);
-        this.gl.compileShader(shader);
-        if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS)) {
-            console.error(this.gl.getShaderInfoLog(shader));
-            this.gl.deleteShader(shader);
-            throw new Error("Shader compile failed");
-        }
-        return shader;
-    }
-
-    private createProgram(vertexShader: WebGLShader, fragmentShader: WebGLShader): WebGLProgram {
-        const program = this.gl.createProgram();
-        this.gl.attachShader(program, vertexShader);
-        this.gl.attachShader(program, fragmentShader);
-        this.gl.linkProgram(program);
-        if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
-            console.error(this.gl.getProgramInfoLog(program));
-            this.gl.deleteProgram(program);
-            throw new Error("Program link failed");
-        }
-        return program;
     }
 
     update(ecs: ECS, deltaTime: number): void {
