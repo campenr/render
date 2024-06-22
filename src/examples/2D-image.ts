@@ -1,15 +1,15 @@
 "use strict";
 
 import Engine2D from '../engine';
-import Scene2D, { createEntityForScene } from '../scene';
 import Entity from '../entity';
-import Mesh, { createMeshForEntity } from "../mesh";
 import { multiply } from '../../wasm/index.wasm';
 import { m3 } from "../math";
 import {createProgram, createShader} from "../shader";
 
 import App from "./App";
 import { controls } from "./store";
+import ECS from "../ecs";
+import {Position, Render} from "../components";
 
 var vertexShaderSource = `#version 300 es
 // an attribute is an input (in) to a vertex shader.
@@ -79,25 +79,6 @@ void main() {
 var image = new Image();
 image.src = "/static/image/flowers.jpg";
 
-
-class E_Plane extends Entity {
-    dimensions: [number, number];
-    rippleSpeed: number;
-    time: number;
-
-    constructor(scene) {
-        super(scene);
-        // arrays are [width, height]
-        this.dimensions = [scene.engine.canvas.height, scene.engine.canvas.width]
-        this.rippleSpeed = 100;
-        this.time = 0;
-    }
-
-    update() {
-        this.postUpdate();
-    }
-}
-
 function setRectangle(gl, x, y, width, height) {
   var x1 = x;
   var x2 = x + width;
@@ -120,227 +101,235 @@ function computeKernelWeight(kernel) {
     return weight <= 0 ? 1 : weight;
 }
 
+// Define several convolution kernels
+const kernels = {
+    normal: [
+      0, 0, 0,
+      0, 1, 0,
+      0, 0, 0,
+    ],
+    gaussianBlur: [
+      0.045, 0.122, 0.045,
+      0.122, 0.332, 0.122,
+      0.045, 0.122, 0.045,
+    ],
+    sharpen: [
+       -1, -1, -1,
+       -1, 16, -1,
+       -1, -1, -1,
+    ],
+    edgeDetect: [
+       -1, -1, -1,
+       -1,  8, -1,
+       -1, -1, -1,
+    ],
+    emboss: [
+       -2, -1,  0,
+       -1,  1,  1,
+        0,  1,  2,
+    ],
+};
+
 controls['kernel'] = {
     'type': 'choice',
     'value': 'normal',
-    'choices': [
-        'normal',
-        'gaussianBlur',
-        'sharpen',
-        'edgeDetect',
-        'emboss',
-    ],
+    'choices': Object.keys(kernels),
 };
 
 function getKernel() {
     return controls['kernel'].value;
 }
+class RenderingSystem {
+    private gl: WebGLRenderingContext;
+    private resolutionUniformLocation: any;
+    private imageLocation: any;
+    private positionBuffer: any;
+    private kernelLocation: any;
+    private kernelWeightLocation: any;
 
-class MS_Plane extends Mesh {
-    program: any;
-    resolutionUniformLocation: any;
-    matrixLocation: any;
-    positions: Array<number>;
-    vao: any;
-    entity: E_Plane;
-    getKernel: String;
+    constructor(canvas: HTMLCanvasElement, vertexShaderSource: string, fragmentShaderSource: string) {
+        this.gl = canvas.getContext("webgl2");
+        if (!this.gl) {
+            return;
+        }
+        this.initGL(vertexShaderSource, fragmentShaderSource);
+    }
 
-    constructor(entity: E_Plane) {
-        super(entity);
-
-        const gl = this.entity.scene.engine.gl;
-
-        // create GLSL shaders, upload the GLSL source, compile the shaders
-        var vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
-        var fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
-
-        // Link the two shaders into a program
-        var program = createProgram(gl, vertexShader, fragmentShader);
-        this.program = program;
+    private initGL(vertexShaderSource: string, fragmentShaderSource: string): void {
+        const vertexShader = this.createShader(this.gl.VERTEX_SHADER, vertexShaderSource);
+        const fragmentShader = this.createShader(this.gl.FRAGMENT_SHADER, fragmentShaderSource);
+        const program = this.createProgram(vertexShader, fragmentShader);
+        this.gl.useProgram(program);
 
         // look up where the vertex data needs to go.
-        var positionAttributeLocation = gl.getAttribLocation(program, "a_position");
-        var texCoordAttributeLocation = gl.getAttribLocation(program, "a_texCoord");
+        const positionAttributeLocation = this.gl.getAttribLocation(program, "a_position");
+        const texCoordAttributeLocation = this.gl.getAttribLocation(program, "a_texCoord");
 
         // look up uniform locations
-        this.resolutionLocation = gl.getUniformLocation(program, "u_resolution");
-        this.imageLocation = gl.getUniformLocation(program, "u_image");
-        this.kernelLocation = gl.getUniformLocation(program, "u_kernel[0]");
-        this.kernelWeightLocation = gl.getUniformLocation(program, "u_kernelWeight");
+        this.resolutionUniformLocation = this.gl.getUniformLocation(program, "u_resolution");
+        this.imageLocation = this.gl.getUniformLocation(program, "u_image");
+        this.kernelLocation = this.gl.getUniformLocation(program, "u_kernel[0]");
+        this.kernelWeightLocation = this.gl.getUniformLocation(program, "u_kernelWeight");
+
+        // Tell WebGL how to convert from clip space to pixels
+        this.gl.viewport(0, 0, this.gl.canvas.width, this.gl.canvas.height);
+
+        // Pass in the canvas resolution so we can convert from
+        // pixels to clipspace in the shader
+        this.gl.uniform2f(this.resolutionUniformLocation, this.gl.canvas.width, this.gl.canvas.height);
 
         // Create a vertex array object (attribute state)
-        var vao = gl.createVertexArray();
-        this.vao = vao;
+        const vao = this.gl.createVertexArray();
 
         // and make it the one we're currently working with
-        gl.bindVertexArray(vao);
+        this.gl.bindVertexArray(vao);
 
         // Create a buffer and put a single pixel space rectangle in
         // it (2 triangles)
-        this.positionBuffer = gl.createBuffer();
+        this.positionBuffer = this.gl.createBuffer();
 
         // Turn on the attribute
-        gl.enableVertexAttribArray(positionAttributeLocation);
+        this.gl.enableVertexAttribArray(positionAttributeLocation);
 
         // Bind it to ARRAY_BUFFER (think of it as ARRAY_BUFFER = positionBuffer)
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffer);
 
         // Tell the attribute how to get data out of positionBuffer (ARRAY_BUFFER)
         var size = 2;          // 2 components per iteration
-        var type = gl.FLOAT;   // the data is 32bit floats
+        var type = this.gl.FLOAT;   // the data is 32bit floats
         var normalize = false; // don't normalize the data
         var stride = 0;        // 0 = move forward size * sizeof(type) each iteration to get the next position
         var offset = 0;        // start at the beginning of the buffer
-        gl.vertexAttribPointer(positionAttributeLocation, size, type, normalize, stride, offset);
+        this.gl.vertexAttribPointer(positionAttributeLocation, size, type, normalize, stride, offset);
 
         // provide texture coordinates for the rectangle.
-        var texCoordBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+        var texCoordBuffer = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, texCoordBuffer);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array([
            0.0,  0.0,
            1.0,  0.0,
            0.0,  1.0,
            0.0,  1.0,
            1.0,  0.0,
            1.0,  1.0,
-        ]), gl.STATIC_DRAW);
+        ]), this.gl.STATIC_DRAW);
 
         // Turn on the attribute
-        gl.enableVertexAttribArray(texCoordAttributeLocation);
+        this.gl.enableVertexAttribArray(texCoordAttributeLocation);
 
         // Tell the attribute how to get data out of texCoordBuffer (ARRAY_BUFFER)
         var size = 2;          // 2 components per iteration
-        var type = gl.FLOAT;   // the data is 32bit floats
+        var type = this.gl.FLOAT;   // the data is 32bit floats
         var normalize = false; // don't normalize the data
         var stride = 0;        // 0 = move forward size * sizeof(type) each iteration to get the next position
         var offset = 0;        // start at the beginning of the buffer
-        gl.vertexAttribPointer(texCoordAttributeLocation, size, type, normalize, stride, offset);
+        this.gl.vertexAttribPointer(texCoordAttributeLocation, size, type, normalize, stride, offset);
 
         // Create a texture.
-        var texture = gl.createTexture();
+        var texture = this.gl.createTexture();
 
         // make unit 0 the active texture uint
         // (ie, the unit all other texture commands will affect
-        gl.activeTexture(gl.TEXTURE0 + 0);
+        this.gl.activeTexture(this.gl.TEXTURE0 + 0);
 
         // Bind it to texture unit 0' 2D bind point
-        gl.bindTexture(gl.TEXTURE_2D, texture);
+        this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
 
         // Set the parameters so we don't need mips and so we're not filtering
         // and we don't repeat at the edges
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
 
         // Upload the image into the texture.
         var mipLevel = 0;               // the largest mip
-        var internalFormat = gl.RGBA;   // format we want in the texture
-        var srcFormat = gl.RGBA;        // format of data we are supplying
-        var srcType = gl.UNSIGNED_BYTE; // type of data we are supplying
-        gl.texImage2D(gl.TEXTURE_2D, mipLevel, internalFormat, srcFormat, srcType, image);
-
-        // Define several convolution kernels
-        this.kernels = {
-            normal: [
-              0, 0, 0,
-              0, 1, 0,
-              0, 0, 0,
-            ],
-            gaussianBlur: [
-              0.045, 0.122, 0.045,
-              0.122, 0.332, 0.122,
-              0.045, 0.122, 0.045,
-            ],
-            sharpen: [
-               -1, -1, -1,
-               -1, 16, -1,
-               -1, -1, -1,
-            ],
-            edgeDetect: [
-               -1, -1, -1,
-               -1,  8, -1,
-               -1, -1, -1,
-            ],
-            emboss: [
-               -2, -1,  0,
-               -1,  1,  1,
-                0,  1,  2,
-            ],
-        };
-        this.getKernel = getKernel;
+        var internalFormat = this.gl.RGBA;   // format we want in the texture
+        var srcFormat = this.gl.RGBA;        // format of data we are supplying
+        var srcType = this.gl.UNSIGNED_BYTE; // type of data we are supplying
+        this.gl.texImage2D(this.gl.TEXTURE_2D, mipLevel, internalFormat, srcFormat, srcType, image);
     }
 
-    update() {
-        const gl = this.entity.scene.engine.gl;
+    private createShader(type: number, source: string): WebGLShader {
+        const shader = this.gl.createShader(type);
+        this.gl.shaderSource(shader, source);
+        this.gl.compileShader(shader);
+        if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS)) {
+            console.error(this.gl.getShaderInfoLog(shader));
+            this.gl.deleteShader(shader);
+            throw new Error("Shader compile failed");
+        }
+        return shader;
+    }
 
-        // Tell WebGL how to convert from clip space to pixels
-        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+    private createProgram(vertexShader: WebGLShader, fragmentShader: WebGLShader): WebGLProgram {
+        const program = this.gl.createProgram();
+        this.gl.attachShader(program, vertexShader);
+        this.gl.attachShader(program, fragmentShader);
+        this.gl.linkProgram(program);
+        if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
+            console.error(this.gl.getProgramInfoLog(program));
+            this.gl.deleteProgram(program);
+            throw new Error("Program link failed");
+        }
+        return program;
+    }
 
+    update(ecs: ECS, deltaTime: number): void {
         // Clear the canvas
-        gl.clearColor(0, 0, 0, 0);
-        gl.clear(gl.COLOR_BUFFER_BIT);
+        this.gl.clearColor(0, 0, 0, 1);
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT);
 
-        // Tell it to use our program (pair of shaders)
-        gl.useProgram(this.program);
+        // iterate and render the entities
+        // Note: we could look to batch draws for perf.
+        const entities = ecs.getEntitiesWithComponents([Position, Render]);
+        for (let i = 0; i < entities.length; i++) {
+            const entity = entities[i];
 
-        // Bind the attribute/buffer set we want.
-        gl.bindVertexArray(this.vao);
+            const position = ecs.getComponent(entity, Position)
 
-        // Pass in the canvas resolution so we can convert from
-        // pixels to clipspace in the shader
-        gl.uniform2f(this.resolutionLocation, gl.canvas.width, gl.canvas.height);
+            // set the kernel and it's weight
+            const activeKernel = getKernel();
+            this.gl.uniform1fv(this.kernelLocation, kernels[activeKernel]);
+            this.gl.uniform1f(this.kernelWeightLocation, computeKernelWeight(kernels[activeKernel]));
 
-        // Tell the shader to get the texture from texture unit 0
-        gl.uniform1i(this.imageLocation, 0);
+            // Bind the position buffer so gl.bufferData that will be called
+            // in setRectangle puts data in the position buffer
+            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffer);
 
-        // set the kernel and it's weight
-        const activeKernel = this.getKernel();
-        gl.uniform1fv(this.kernelLocation, this.kernels[activeKernel]);
-        gl.uniform1f(this.kernelWeightLocation, computeKernelWeight(this.kernels[activeKernel]));
+            // Set a rectangle the same size as the image.
+            setRectangle(this.gl, position.x, position.y, image.width, image.height);
 
-        // Bind the position buffer so gl.bufferData that will be called
-        // in setRectangle puts data in the position buffer
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
+            // Draw the rectangle.
+            var primitiveType = this.gl.TRIANGLES;
+            var offset = 0;
+            var count = 6;
+            this.gl.drawArrays(primitiveType, offset, count);
 
-        // Set a rectangle the same size as the image.
-        setRectangle(gl, 0, 0, image.width, image.height);
-
-        // Draw the rectangle.
-        var primitiveType = gl.TRIANGLES;
-        var offset = 0;
-        var count = 6;
-        gl.drawArrays(primitiveType, offset, count);
-
+        }
     }
 }
-
 
 function main() {
 
-    var canvas = document.querySelector("#glcanvas") as HTMLCanvasElement;
-    var gl = canvas.getContext("webgl2");
-    if (!gl) {
-        return;
-    }
+    const canvas = document.querySelector("#glcanvas") as HTMLCanvasElement;
 
-    image.onload = () => {
-        const engine = setup(canvas, gl);
-        engine.run();
-    };
+    const ecs = new ECS();
+
+    const renderingSystem = new RenderingSystem(canvas, vertexShaderSource, fragmentShaderSource);
+
+    const engine = new Engine2D(
+        [renderingSystem],
+        ecs
+    )
+
+    const entity1 = ecs.createEntity();
+    ecs.addComponent(entity1, new Position(0, 0));
+    ecs.addComponent(entity1, new Render());
+
+    engine.run()
 }
 
-const setup = (canvas, gl) => {
-    const engine = new Engine2D(canvas, gl);
-
-    const scene = new Scene2D(engine);
-    const basicEntity = createEntityForScene(E_Plane, scene);
-    const basicMesh = createMeshForEntity(MS_Plane, basicEntity);
-
-    engine.setScene(scene);
-
-    return engine;
-}
 
 const app = new App({
   target: document.getElementById('root'),
