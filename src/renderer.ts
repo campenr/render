@@ -5,14 +5,9 @@ import {m3} from "./math";
 
 export default class RenderingSystem {
     private gl: WebGLRenderingContext;
-    program: any;
-    positionLocation: any;
-    colorLocation: any;
-    positionBuffer: any;
-    resolutionUniformLocation: any;
-    matrixLocation: any;
-    positions: Array<number>;
-    vao: any;
+    private resolutionUniformLocation: any;
+    private matrixLocation: any;
+    private positions: Array<number>;
 
     constructor(canvas: HTMLCanvasElement, vertexShaderSource: string, fragmentShaderSource: string) {
         this.gl = canvas.getContext("webgl2");
@@ -26,7 +21,6 @@ export default class RenderingSystem {
         const vertexShader = this.createShader(this.gl.VERTEX_SHADER, vertexShaderSource);
         const fragmentShader = this.createShader(this.gl.FRAGMENT_SHADER, fragmentShaderSource);
         const program = this.createProgram(vertexShader, fragmentShader);
-        this.program = program;
         this.gl.useProgram(program);
 
         // look up where the vertex data needs to go.
@@ -36,6 +30,13 @@ export default class RenderingSystem {
         this.resolutionUniformLocation = this.gl.getUniformLocation(program, "u_resolution");
         this.matrixLocation = this.gl.getUniformLocation(program, "u_matrix");
 
+        // Tell WebGL how to convert from clip space to pixels
+        this.gl.viewport(0, 0, this.gl.canvas.width, this.gl.canvas.height);
+
+        // Pass in the canvas resolution so we can convert from
+        // pixels to clipspace in the shader
+        this.gl.uniform2f(this.resolutionUniformLocation, this.gl.canvas.width, this.gl.canvas.height);
+
         // Create a buffer and put three 2d clip space points in it
         const positionBuffer = this.gl.createBuffer();
 
@@ -43,6 +44,7 @@ export default class RenderingSystem {
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, positionBuffer);
 
         // array of start/end points in clip-space
+        // Note: this means all entities are squares
         const positions = [
             0, 0,
             50, 0,
@@ -55,8 +57,7 @@ export default class RenderingSystem {
         this.positions = positions;
 
         // Create a vertex array object (attribute state)
-        var vao = this.gl.createVertexArray();
-        this.vao = vao;
+        const vao = this.gl.createVertexArray();
 
         // and make it the one we're currently working with
         this.gl.bindVertexArray(vao);
@@ -71,18 +72,6 @@ export default class RenderingSystem {
         var stride = 0;        // 0 = move forward size * sizeof(type) each iteration to get the next position
         var offset = 0;        // start at the beginning of the buffer
         this.gl.vertexAttribPointer(positionAttributeLocation, size, type, normalize, stride, offset);
-
-        // this.positionLocation = this.gl.getAttribLocation(program, "a_position");
-        // this.colorLocation = this.gl.getUniformLocation(program, "u_color");
-        //
-        // this.positionBuffer = this.gl.createBuffer();
-        // this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffer);
-        // this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array([
-        //     -0.1, -0.1,
-        //      0.1, -0.1,
-        //     -0.1,  0.1,
-        //      0.1,  0.1,
-        // ]), this.gl.STATIC_DRAW);
     }
 
     private createShader(type: number, source: string): WebGLShader {
@@ -111,54 +100,29 @@ export default class RenderingSystem {
     }
 
     update(ecs: ECS): void {
-        const entities = ecs.entities;
-
-        // Tell WebGL how to convert from clip space to pixels
-        this.gl.viewport(0, 0, this.gl.canvas.width, this.gl.canvas.height);
-
         // Clear the canvas
         this.gl.clearColor(0, 0, 0, 1);
         this.gl.clear(this.gl.COLOR_BUFFER_BIT);
 
-        // Tell it to use our program (pair of shaders)
-        this.gl.useProgram(this.program);
+        // iterate and render the entities
+        // Note: we could look to batch draws for perf.
+        const entities = ecs.entities;
+        for (let i = 0; i < entities.length; i++) {
+            const entity = entities[i];
+            const position = ecs.getComponent(entity, Position);
 
-        // Bind the attribute/buffer set we want.
-        this.gl.bindVertexArray(this.vao);
+            // Compute the matrices
+            var translationMatrix = m3.translation(position.x, position.y);
 
-        // Pass in the canvas resolution so we can convert from
-        // pixels to clipspace in the shader
-        this.gl.uniform2f(this.resolutionUniformLocation, this.gl.canvas.width, this.gl.canvas.height);
+            // Set the matrix.
+            this.gl.uniformMatrix3fv(this.matrixLocation, false, translationMatrix);
 
-        // Compute the matrices
-        var translationMatrix = m3.translation(0.5, 0.5);
+            // draw
+            var primitiveType = this.gl.TRIANGLES;
+            var offset = 0;
+            var count = this.positions.length / 2;  // positions / values per position
+            this.gl.drawArrays(primitiveType, offset, count);
 
-        // Set the matrix.
-        this.gl.uniformMatrix3fv(this.matrixLocation, false, translationMatrix);
-
-        // draw
-        var primitiveType = this.gl.TRIANGLES;
-        var offset = 0;
-        var count = this.positions.length / 2;  // positions / values per position
-        this.gl.drawArrays(primitiveType, offset, count);
-
-        ///////
-
-        // this.gl.clear(this.gl.COLOR_BUFFER_BIT);
-
-        // for (const entity of entities) {
-        //     const position = ecs.getComponent(entity, Position);
-        //     const render = ecs.getComponent(entity, Render);
-        //
-        //     if (position && render) {
-        //         this.gl.uniform4fv(this.colorLocation, render.color);
-        //
-        //         this.gl.enableVertexAttribArray(this.positionLocation);
-        //         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffer);
-        //         this.gl.vertexAttribPointer(this.positionLocation, 2, this.gl.FLOAT, false, 0, 0);
-        //
-        //         this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
-        //     }
-        // }
+        }
     }
 }

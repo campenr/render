@@ -7,5 +7,6 @@ export class Velocity {
 }
 
 export class Render {
-    constructor(public color: [number, number, number, number]) {}
+    // empty component that indicates an entity is renderable
+    constructor() {}
 }

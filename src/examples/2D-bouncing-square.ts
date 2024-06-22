@@ -219,52 +219,18 @@ function main() {
     const engine = new Engine2D(renderingSystem, ecs)
 
     const entity1 = ecs.createEntity();
-    ecs.addComponent(entity1, new Position(0.5, 0.5));
-    // ecs.addComponent(entity1, new Velocity(1, 1));
-    ecs.addComponent(entity1, new Render([1.0, 0.0, 0.0, 1.0]));
+    ecs.addComponent(entity1, new Position(0, 0));
+    ecs.addComponent(entity1, new Velocity(1, 1));
+    ecs.addComponent(entity1, new Render());
+
+    const entity2 = ecs.createEntity();
+    ecs.addComponent(entity2, new Position(100, 200));
+    ecs.addComponent(entity1, new Velocity(1, 1));
+    ecs.addComponent(entity2, new Render());
 
     engine.run()
-
 }
 
-// const setup = (canvas, gl) => {
-//
-//     const ecs = new ECS();
-//
-//     const engine = new Engine2D(canvas, gl, ecs);
-//
-//     const entity1 = ecs.createEntity();
-//     ecs.addComponent(entity1, new Position(1, 1));
-//     ecs.addComponent(entity1, new Velocity(1, 1));
-//
-//     // const engine = new Engine2D(canvas, gl);
-//     //
-//     // const scene = new Scene2D(engine);
-//     //
-//     // const entity_1 = createEntityForScene(
-//     //     E_Square,
-//     //     scene,
-//     //     {
-//     //         position: [0, 0],
-//     //         direction: [1, 1],
-//     //     }
-//     // );
-//     // createMeshForEntity(MS_Square, entity_1);
-//
-//     // @todo: currently doesn't work as the entities meshes share draw state.
-//     // const entity_2 = createEntityForScene(
-//     //     E_Square,
-//     //     scene,
-//     //     {
-//     //         position: [0, 0],
-//     //         direction: [1, 1],
-//     //     }
-//     // );
-//     // createMeshForEntity(MS_Square, entity_2);
-//
-//     // engine.setScene(scene);
-//     // return engine;
-// }
 
 const app = new App({
   target: document.getElementById('root'),
