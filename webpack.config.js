@@ -8,6 +8,7 @@ module.exports = {
     devtool: 'inline-source-map',
     entry: {
         'main': './src/examples/main.scss',
+        '2D-ants': './src/examples/2D-ants.ts',
         '2D-bouncing-square': './src/examples/2D-bouncing-square.ts',
         '2D-image': './src/examples/2D-image.ts',
     },
