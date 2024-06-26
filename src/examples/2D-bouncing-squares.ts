@@ -46,18 +46,48 @@ var fragmentShaderSource = `#version 300 es
 // to pick one. highp is a good default. It means "high precision"
 precision highp float;
 
+uniform vec4 u_color;
+
 // we need to declare an output for the fragment shader
 out vec4 outColor;
 
 void main() {
   // Just set the output to a constant redish-purple
-  outColor = vec4(1, 0, 0.5, 1);
+  outColor = u_color;
 }
 `;
 
+const ENTITY_SIZE = 50;
+const ENTITY_COUNT = 9;
+const ENTITY_SPEED = 100;
+
+const COLORS = [
+    [8, 65, 215],
+    [226, 57, 223],
+    [23, 140, 141],
+    [215, 76, 20],
+    [98, 85, 200],
+    [145, 241, 212],
+    [45, 3, 146],
+    [236, 76, 24],
+    [254, 221, 157],
+]
+
+const LOCATION = [
+    [0.1, 0.7],
+    [0.8, 0.3],
+    [0.2, 0.8],
+    [0.1, 0.1],
+    [0.8, 0.8],
+    [0.3, 0.4],
+    [0.45, 0.5],
+    [0.7, 0.3],
+    [0.2, 0.6],
+]
+
 controls['moveSpeed'] = {
     'type': 'number',
-    'value': 100,
+    'value': ENTITY_SPEED,
 };
 
 function getMoveSpeed() {
@@ -68,6 +98,7 @@ function getMoveSpeed() {
 class RenderingSystem {
     private gl: WebGLRenderingContext;
     private resolutionUniformLocation: any;
+    private colorUniformLocation: any;
     private matrixLocation: any;
     private positions: Array<number>;
 
@@ -90,6 +121,7 @@ class RenderingSystem {
 
         // look up uniform locations
         this.resolutionUniformLocation = this.gl.getUniformLocation(program, "u_resolution");
+        this.colorUniformLocation = this.gl.getUniformLocation(program, "u_color");
         this.matrixLocation = this.gl.getUniformLocation(program, "u_matrix");
 
         // Tell WebGL how to convert from clip space to pixels
@@ -109,11 +141,11 @@ class RenderingSystem {
         // Note: this means all entities are squares
         const positions = [
             0, 0,
-            50, 0,
-            0, 50,
-            50, 0,
-            50, 50,
-            0, 50,
+            ENTITY_SIZE, 0,
+            0, ENTITY_SIZE,
+            ENTITY_SIZE, 0,
+            ENTITY_SIZE, ENTITY_SIZE,
+            0, ENTITY_SIZE,
         ];
         this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(positions), this.gl.STATIC_DRAW);
         this.positions = positions;
@@ -152,6 +184,10 @@ class RenderingSystem {
             const translationMatrix = m3.translation(position.x, position.y);
             this.gl.uniformMatrix3fv(this.matrixLocation, false, translationMatrix);
 
+            // Set a color based on the index
+            const color = COLORS[i]
+            this.gl.uniform4f(this.colorUniformLocation, color[0] / 255, color[1] / 255, color[2] / 255, 1);
+
             // draw
             const primitiveType = this.gl.TRIANGLES;
             const offset = 0;
@@ -180,22 +216,60 @@ class MovementSystem {
             const position = ecs.getComponent(entity, Position);
             const velocity = ecs.getComponent(entity, Velocity);
 
-            // TODO: would be good to put this collision logic into its own component
-            if (position.x > multiply(this.canvas.width * 1.0, 0.92)) {
-                velocity.dx = -1;
-            }
-            if (position.x < 0) {
-                velocity.dx = 1;
-            }
-            if (position.y > multiply(this.canvas.height * 1.0, 0.90)) {
-                velocity.dy = -1;
-            }
-            if (position.y < 0) {
-                velocity.dy = 1;
-            }
-
+            // we move the entity first before calculating any collisions, so we can
+            // more easily determine how to update the velocity post collision
             position.x = position.x + deltaTime * moveSpeed * velocity.dx;
             position.y = position.y + deltaTime * moveSpeed * velocity.dy;
+
+            // calculate collisions with edge of the screen first
+            // reverse the movement before applying the velocity change to avoid getting stuck
+            if (position.x + ENTITY_SIZE > this.canvas.clientWidth || position.x < 0) {
+                position.x = position.x - deltaTime * moveSpeed * velocity.dx;
+                velocity.dx = velocity.dx * -1;
+            }
+            else if (position.y + ENTITY_SIZE > this.canvas.clientHeight || position.y < 0) {
+                position.y = position.y - deltaTime * moveSpeed * velocity.dy;
+                velocity.dy = velocity.dy * -1;
+            }
+
+            // iterate every other entity to see if it's colling with the current one, and if so then update
+            // the velocities of both.
+            // NOTE: because we're doing this for every single entity it's performance will not scale well.
+            for (let j = 0; j < entities.length; j++) {
+                const otherEntity = entities[j];
+
+                // don;t calculate collisions with self.
+                if (entity.id == otherEntity.id) { continue; }
+
+                const otherPosition = ecs.getComponent(otherEntity, Position);
+                const otherVelocity = ecs.getComponent(otherEntity, Velocity);
+
+                // first detect if there is any overlap at all. because we're working with simple squares
+                // this is doing a box collision i.e. AABB - AABB
+                if (
+                    position.x < otherPosition.x + ENTITY_SIZE &&
+                    position.x + ENTITY_SIZE > otherPosition.x &&
+                    position.y < otherPosition.y + ENTITY_SIZE &&
+                    position.y + ENTITY_SIZE > otherPosition.y
+                ) {
+                    // update the velocities in response to the collision. To determine which axis to update the
+                    // velocity along we just check if the overlapping quad is longer along the x or y axis, with the
+                    // former indicating a horizontal collision, else a vertical one.
+                    if (position.x + ENTITY_SIZE - otherPosition.x > position.y + ENTITY_SIZE - otherPosition.y) {
+                        // bounce the objects back apart the same distance before the collision was detected
+                        position.x = position.x - deltaTime * moveSpeed * velocity.dx;
+                        // otherPosition.x = otherPosition.x - deltaTime * moveSpeed * otherVelocity.dx;
+                        velocity.dx = velocity.dx * -1;
+                        otherVelocity.dx = otherVelocity.dx * -1;
+                    } else {
+                        // bounce the objects back apart the same distance before the collision was detected
+                        position.y = position.y - deltaTime * moveSpeed * velocity.dy;
+                        // otherPosition.y = otherPosition.y - deltaTime * moveSpeed * otherVelocity.dy;
+                        velocity.dy = velocity.dy * -1;
+                        otherVelocity.dy = otherVelocity.dy * -1;
+                    }
+                }
+            }
         }
     }
 }
@@ -215,15 +289,12 @@ function main() {
         ecs
     )
 
-    const entity1 = ecs.createEntity();
-    ecs.addComponent(entity1, new Position(0, 0));
-    ecs.addComponent(entity1, new Velocity(1, 1));
-    ecs.addComponent(entity1, new Render());
-
-    const entity2 = ecs.createEntity();
-    ecs.addComponent(entity2, new Position(100, 200));
-    ecs.addComponent(entity2, new Velocity(1, -1));
-    ecs.addComponent(entity2, new Render());
+    for (let i = 0; i < ENTITY_COUNT; i++) {
+        const entity = ecs.createEntity();
+        ecs.addComponent(entity, new Position(LOCATION[i][0] * canvas.clientWidth, LOCATION[i][1] * canvas.clientHeight));
+        ecs.addComponent(entity, new Velocity(1, i % 2 == 0 ? 1 : -1));
+        ecs.addComponent(entity, new Render());
+    }
 
     engine.run()
 }
