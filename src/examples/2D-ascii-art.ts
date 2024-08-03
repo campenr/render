@@ -4,7 +4,6 @@ import Engine2D from '../engine';
 import { createProgram, createShader } from "../shader";
 
 import App from "./App";
-import { controls } from "./store";
 import ECS from "../ecs";
 import { Position, Render } from "../components";
 
@@ -47,10 +46,6 @@ precision highp float;
 // our texture
 uniform sampler2D u_image;
 
-// the convolution kernel data
-uniform float u_kernel[9];
-uniform float u_kernelWeight;
-
 // the texCoords passed in from the vertex shader.
 in vec2 v_texCoord;
 
@@ -58,19 +53,39 @@ in vec2 v_texCoord;
 out vec4 outColor;
 
 void main() {
-  vec2 onePixel = vec2(1) / vec2(textureSize(u_image, 0));
 
-  vec4 colorSum =
-      texture(u_image, v_texCoord + onePixel * vec2(-1, -1)) * u_kernel[0] +
-      texture(u_image, v_texCoord + onePixel * vec2( 0, -1)) * u_kernel[1] +
-      texture(u_image, v_texCoord + onePixel * vec2( 1, -1)) * u_kernel[2] +
-      texture(u_image, v_texCoord + onePixel * vec2(-1,  0)) * u_kernel[3] +
-      texture(u_image, v_texCoord + onePixel * vec2( 0,  0)) * u_kernel[4] +
-      texture(u_image, v_texCoord + onePixel * vec2( 1,  0)) * u_kernel[5] +
-      texture(u_image, v_texCoord + onePixel * vec2(-1,  1)) * u_kernel[6] +
-      texture(u_image, v_texCoord + onePixel * vec2( 0,  1)) * u_kernel[7] +
-      texture(u_image, v_texCoord + onePixel * vec2( 1,  1)) * u_kernel[8] ;
-  outColor = vec4((colorSum / u_kernelWeight).rgb, 1);
+    int red = 0;
+    int blue = 0;
+    int green = 0;
+
+    vec4 pixel = texture(u_image, v_texCoord);
+    float brightness = pixel.r + pixel.b + pixel.g;
+
+    if (brightness > 2.5) {
+        red = 1;
+        blue = 1;
+        green = 1;
+    } else if (brightness > 2.0) {
+        red = 1;
+    } else if (brightness > 1.5) {
+        red = 1;
+        blue = 1;
+    }else if (brightness > 1.0) {
+        blue = 1;
+    } else if (brightness > 0.5) {
+        green = 1;
+    } else if (brightness > 0.25) {
+        blue = 1;
+        green = 1;
+    }
+
+    outColor = vec4(
+        red,
+        blue,
+        green,
+        1    
+    );
+  
 }`;
 
 var image = new Image();
@@ -98,51 +113,12 @@ function computeKernelWeight(kernel) {
     return weight <= 0 ? 1 : weight;
 }
 
-// Define several convolution kernels
-const kernels = {
-    normal: [
-      0, 0, 0,
-      0, 1, 0,
-      0, 0, 0,
-    ],
-    gaussianBlur: [
-      1, 2, 1,
-      2 , 4 , 2,
-      1, 2, 1,
-    ],
-    sharpen: [
-       -1, -1, -1,
-       -1, 16, -1,
-       -1, -1, -1,
-    ],
-    edgeDetect2: [
-       -1, -1, -1,
-       -1,  8, -1,
-       -1, -1, -1,
-    ],
-    emboss: [
-       -2, -1,  0,
-       -1,  1,  1,
-        0,  1,  2,
-    ],
-};
 
-controls['kernel'] = {
-    'type': 'choice',
-    'value': 'normal',
-    'choices': Object.keys(kernels),
-};
-
-function getKernel() {
-    return controls['kernel'].value;
-}
 class RenderingSystem {
     private gl: WebGLRenderingContext;
     private resolutionUniformLocation: any;
     private imageLocation: any;
     private positionBuffer: any;
-    private kernelLocation: any;
-    private kernelWeightLocation: any;
 
     constructor(canvas: HTMLCanvasElement, vertexShaderSource: string, fragmentShaderSource: string) {
         this.gl = canvas.getContext("webgl2");
@@ -165,8 +141,6 @@ class RenderingSystem {
         // look up uniform locations
         this.resolutionUniformLocation = this.gl.getUniformLocation(program, "u_resolution");
         this.imageLocation = this.gl.getUniformLocation(program, "u_image");
-        this.kernelLocation = this.gl.getUniformLocation(program, "u_kernel[0]");
-        this.kernelWeightLocation = this.gl.getUniformLocation(program, "u_kernelWeight");
 
         // Tell WebGL how to convert from clip space to pixels
         this.gl.viewport(0, 0, this.gl.canvas.width, this.gl.canvas.height);
@@ -259,11 +233,6 @@ class RenderingSystem {
             const entity = entities[i];
 
             const position = ecs.getComponent(entity, Position)
-
-            // set the kernel and it's weight
-            const activeKernel = getKernel();
-            this.gl.uniform1fv(this.kernelLocation, kernels[activeKernel]);
-            this.gl.uniform1f(this.kernelWeightLocation, computeKernelWeight(kernels[activeKernel]));
 
             // Bind the position buffer so gl.bufferData that will be called
             // in setRectangle puts data in the position buffer

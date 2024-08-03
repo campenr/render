@@ -11,6 +11,7 @@ module.exports = {
         // '2D-ants': './src/examples/2D-ants.ts',
         '2D-bouncing-square': './src/examples/2D-bouncing-squares.ts',
         '2D-image': './src/examples/2D-image.ts',
+        '2D-ascii-art': './src/examples/2D-ascii-art.ts',
     },
     output: {
         filename: '[name].js',
