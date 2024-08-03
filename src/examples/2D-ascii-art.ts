@@ -85,8 +85,9 @@ void main() {
         green,
         1    
     );
-  
 }`;
+
+const DOWNSAMPLE = 8;
 
 var image = new Image();
 image.src = "/static/image/flowers.jpg";
@@ -147,7 +148,8 @@ class RenderingSystem {
 
         // Pass in the canvas resolution so we can convert from
         // pixels to clipspace in the shader
-        this.gl.uniform2f(this.resolutionUniformLocation, this.gl.canvas.width, this.gl.canvas.height);
+        // upsizing the image after downscale
+        this.gl.uniform2f(this.resolutionUniformLocation, this.gl.canvas.width * DOWNSAMPLE, this.gl.canvas.height * DOWNSAMPLE);
 
         // Create a vertex array object (attribute state)
         const vao = this.gl.createVertexArray();
@@ -254,6 +256,13 @@ class RenderingSystem {
 function main() {
 
     const canvas = document.querySelector("#glcanvas") as HTMLCanvasElement;
+    // for simplicity, we downscale the image by downscaling the whole canvas.
+    // we upscale it in the shader by multiplying the shader resolution by the amount we downscaled.
+    canvas.width = 640 / DOWNSAMPLE;
+    canvas.height = 480 / DOWNSAMPLE;
+    // because we're downscaling the image using the canvas itself we need to also make sure
+    // it doesn't do the default when we upscale it back up of interpolating pixel colors.
+    canvas.style.imageRendering = "pixelated";
 
     const ecs = new ECS();
 
