@@ -52,39 +52,62 @@ in vec2 v_texCoord;
 // we need to declare an output for the fragment shader
 out vec4 outColor;
 
+vec3 adjustSaturation(vec3 color, float value) {
+  // https://www.w3.org/TR/WCAG21/#dfn-relative-luminance
+  const vec3 luminosityFactor = vec3(0.2126, 0.7152, 0.0722);
+  vec3 grayscale = vec3(dot(color, luminosityFactor));
+
+  return mix(grayscale, color, 1.0 + value);
+}
+
+float bucketBrightness(float brightness) {
+    float value = 0.0;
+    if (brightness > 0.9) {
+            value = 1.0;
+        } else if (brightness > 0.8) {
+            value = 0.9;
+        } else if (brightness > 0.7) {
+            value = 0.8;
+        }else if (brightness > 0.6) {
+            value = 0.7;
+        } else if (brightness > 0.5) {
+            value = 0.6;
+        } else if (brightness > 0.4) {
+            value = 0.5;
+        } else if (brightness > 0.3) {
+            value = 0.4;
+        } else if (brightness > 0.2) {
+            value = 0.3;
+        } else if (brightness > 0.1) {
+            value = 0.2;
+        } else if (brightness > 0.01) {
+            value = 0.1;
+        }
+    return value;
+}
+
 void main() {
+    // get the pixel from the image
+    // we save it separately so we can reference it again later.
+    vec3 originalPixel = texture(u_image, v_texCoord).rgb;
+    
+    // de-saturate the pixel so we can just deal in terms of brightness
+    float desaturationScale = -1.0;
+    vec3 pixel = adjustSaturation(originalPixel, desaturationScale);
+    
+    // bucket brightness into 10 buckets
+    // because we've desaturated we only need to worry about one color channel here.
+    float brightness = bucketBrightness(pixel.r);
 
-    int red = 0;
-    int blue = 0;
-    int green = 0;
-
-    vec4 pixel = texture(u_image, v_texCoord);
-    float brightness = pixel.r + pixel.b + pixel.g;
-
-    if (brightness > 2.5) {
-        red = 1;
-        blue = 1;
-        green = 1;
-    } else if (brightness > 2.0) {
-        red = 1;
-    } else if (brightness > 1.5) {
-        red = 1;
-        blue = 1;
-    }else if (brightness > 1.0) {
-        blue = 1;
-    } else if (brightness > 0.5) {
-        green = 1;
-    } else if (brightness > 0.25) {
-        blue = 1;
-        green = 1;
-    }
-
+    // return the original image, but now with pixels bucketed by their relative brightness
+    // thanks to the above procedures.
     outColor = vec4(
-        red,
-        blue,
-        green,
-        1    
+        brightness,
+        brightness,
+        brightness,
+        1.0    
     );
+
 }`;
 
 const DOWNSAMPLE = 8;
